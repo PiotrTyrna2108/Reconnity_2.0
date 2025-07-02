@@ -1,0 +1,24 @@
+# filepath: /Users/piotrtyrna/Desktop/Reconnity/easm-microservices/easm-core/app/db/migrations/README
+# Generic single-database configuration for Alembic migrations.
+
+This directory contains database migrations for the EASM Core application.
+
+## How to create a migration
+
+```bash
+alembic revision -m "description of the change"
+```
+
+## How to run migrations
+
+To upgrade to the latest version:
+```bash
+alembic upgrade head
+```
+
+To downgrade one version:
+```bash
+alembic downgrade -1
+```
+
+For more information, see the [Alembic documentation](https://alembic.sqlalchemy.org).
