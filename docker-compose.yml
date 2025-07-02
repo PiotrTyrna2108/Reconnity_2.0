@@ -65,7 +65,7 @@ services:
     # Run as privileged for masscan raw socket access
     privileged: true
 
-  beat:
+  celery-scheduler:
     build: ./easm-core
     command: celery -A app.tasks.celery_app beat -l info
     environment:
