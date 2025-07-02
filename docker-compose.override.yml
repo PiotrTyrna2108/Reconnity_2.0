@@ -26,7 +26,7 @@ services:
 
   scanner-nmap:
     volumes:
-      - ./scanner-nmap/app:/app/app  # Mount source code for hot reload
+      - ./scanners/scanner-nmap/app:/app/app  # Mount source code for hot reload
     environment:
       - PYTHONPATH=/app
 

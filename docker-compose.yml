@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   scanner-nmap:
-    build: ./scanner-nmap
+    build: ./scanners/scanner-nmap
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CORE_URL: http://core:8001
@@ -53,7 +53,7 @@ services:
     privileged: true
 
   scanner-masscan:
-    build: ./scanner-masscan
+    build: ./scanners/scanner-masscan
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
       CORE_URL: http://core:8001
