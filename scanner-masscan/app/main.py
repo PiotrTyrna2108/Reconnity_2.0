@@ -201,7 +201,7 @@ def report_scan_completion(scan_id: str, results: Dict[str, Any]):
     """Report successful scan completion to core service"""
     try:
         response = requests.post(
-            f"{CORE_URL}/internal/scan/{scan_id}/complete",
+            f"{CORE_URL}/api/v1/scan/{scan_id}/complete",
             json=results,
             timeout=10
         )
@@ -214,7 +214,7 @@ def report_scan_failure(scan_id: str, error: str):
     """Report scan failure to core service"""
     try:
         response = requests.post(
-            f"{CORE_URL}/internal/scan/{scan_id}/fail",
+            f"{CORE_URL}/api/v1/scan/{scan_id}/fail",
             json={"error": error},
             timeout=10
         )

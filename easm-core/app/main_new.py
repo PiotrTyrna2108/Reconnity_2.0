@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 import os
-from celery import Celery
 
 # Import our modules
 from .core.settings import settings
@@ -10,8 +9,6 @@ from .api.errors import (
     EASMException, ScanNotFoundException, ScannerNotSupportedException,
     scan_not_found_handler, scanner_not_supported_handler
 )
-from .schemas.scan import ScanRequest, ScanResponse, ScanStatus
-from .services.scan_service import ScanService
 from .api.routers import health, scan
 
 # Configure logging
@@ -44,4 +41,4 @@ app.add_exception_handler(ScannerNotSupportedException, scanner_not_supported_ha
 
 # Include routers
 app.include_router(health.router, tags=["health"])
-app.include_router(scan.router, prefix="/api/v1", tags=["scan"])
+app.include_router(scan.router, tags=["scan"])

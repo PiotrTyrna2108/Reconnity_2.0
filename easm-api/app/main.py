@@ -47,7 +47,7 @@ async def create_scan(req: AssetRequest):
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                f"{CORE_URL}/internal/scan", 
+                f"{CORE_URL}/api/v1/scan", 
                 json=req.model_dump()
             )
             response.raise_for_status()
@@ -80,7 +80,7 @@ async def get_scan_status(scan_id: str):
     """Get scan status and results"""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{CORE_URL}/internal/scan/{scan_id}")
+            response = await client.get(f"{CORE_URL}/api/v1/scan/{scan_id}")
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as e:

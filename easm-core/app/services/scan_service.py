@@ -3,7 +3,7 @@ from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.orm import Session
 from ..core.logging import get_logger
-from ..models import Scan, Asset, Finding
+from ..models import Scan, Asset, Finding, RiskScore
 from ..risk_engine import RiskEngine
 
 logger = get_logger(__name__)
@@ -92,8 +92,10 @@ class ScanService:
                 "completed_at": scan.completed_at.isoformat() if scan.completed_at else None,
                 "options": scan.options,
                 "results": scan.results,
-                "error_message": scan.error_message,
-                "progress": 100 if scan.status == "completed" else (50 if scan.status == "running" else 0)
+                "error": scan.error_message,  # Map to error as expected by ScanStatus schema
+                "progress": 100 if scan.status == "completed" else (50 if scan.status == "running" else 0),
+                "findings": None,  # Initialize with None, will be populated if completed
+                "risk_score": None  # Initialize with None, will be populated if completed
             }
             
             # Get findings if scan is completed
@@ -112,6 +114,17 @@ class ScanService:
                     }
                     for f in findings
                 ]
+                
+                # Get risk score for target
+                target = scan.target
+                risk_score = self.db.query(RiskScore).filter(RiskScore.target == target).first()
+                if risk_score:
+                    scan_data["risk_score"] = {
+                        "score": risk_score.score,
+                        "level": self._get_risk_level(risk_score.score),
+                        "factors": risk_score.factors,
+                        "calculated_at": risk_score.calculated_at.isoformat() if risk_score.calculated_at else None
+                    }
             
             return scan_data
             
@@ -194,10 +207,13 @@ class ScanService:
 
     async def _process_scan_results(self, scan_id: str, results: Dict[str, Any]):
         """Process scan results and extract findings"""
+        start_time = datetime.utcnow()
         try:
             # Create findings from scan results
             open_ports = results.get("open_ports", [])
             services = results.get("services", {})
+            target = results.get("target", "unknown")
+            scan_findings = []
             
             for port in open_ports:
                 service_info = services.get(str(port), "unknown")
@@ -211,7 +227,7 @@ class ScanService:
                 finding = Finding(
                     id=str(uuid4()),
                     scan_id=scan_id,
-                    target=results.get("target", "unknown"),
+                    target=target,
                     finding_type="open_port",
                     severity="medium",
                     title=f"Open port {port}",
@@ -223,11 +239,144 @@ class ScanService:
                 )
                 
                 self.db.add(finding)
+                scan_findings.append({
+                    "finding_type": "open_port",
+                    "severity": "medium",
+                    "port": port,
+                    "service": service_name
+                })
             
             self.db.commit()
-            logger.info(f"Created {len(open_ports)} findings for scan {scan_id}")
+            logger.info(
+                f"Created {len(open_ports)} findings for scan {scan_id}",
+                scan_id=scan_id,
+                finding_count=len(open_ports),
+                processing_time=f"{(datetime.utcnow() - start_time).total_seconds():.2f}s"
+            )
+            
+            # Create or update asset
+            await self._create_or_update_asset(target, results)
+            
+            # Calculate risk score and save to database
+            await self._calculate_and_save_risk_score(target, scan_findings)
             
         except Exception as e:
             self.db.rollback()
-            logger.error(f"Failed to process scan results: {e}")
+            logger.error(
+                f"Failed to process scan results",
+                error=str(e),
+                scan_id=scan_id,
+                processing_time=f"{(datetime.utcnow() - start_time).total_seconds():.2f}s"
+            )
             raise
+            
+    async def _create_or_update_asset(self, target: str, results: Dict[str, Any]):
+        """Create or update asset based on scan results"""
+        try:
+            # Determine asset type based on target format
+            import re
+            
+            asset_type = "unknown"
+            if re.match(r'^\d+\.\d+\.\d+\.\d+$', target):
+                asset_type = "ip"
+            elif re.match(r'^[a-zA-Z0-9][-a-zA-Z0-9.]+\.[a-zA-Z]{2,}$', target):
+                asset_type = "domain"
+            
+            # Check if asset exists
+            asset = self.db.query(Asset).filter(Asset.target == target).first()
+            
+            if asset:
+                # Update existing asset
+                asset.updated_at = datetime.utcnow()
+                asset.asset_metadata = {
+                    **(asset.asset_metadata or {}),
+                    "last_scan_id": results.get("scan_id"),
+                    "last_scan_time": datetime.utcnow().isoformat()
+                }
+                logger.info(f"Updated asset in database", target=target, asset_type=asset_type)
+            else:
+                # Create new asset
+                asset = Asset(
+                    id=str(uuid4()),
+                    target=target,
+                    asset_type=asset_type,
+                    status="active",
+                    created_at=datetime.utcnow(),
+                    asset_metadata={
+                        "first_scan_id": results.get("scan_id"),
+                        "first_scan_time": datetime.utcnow().isoformat(),
+                        "discovery_method": results.get("scanner", "unknown")
+                    }
+                )
+                self.db.add(asset)
+                logger.info(
+                    f"Created new asset in database",
+                    target=target,
+                    asset_type=asset_type,
+                    asset_id=asset.id
+                )
+                
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to create/update asset: {e}")
+            return False
+            
+    async def _calculate_and_save_risk_score(self, target: str, findings: List[Dict[str, Any]]):
+        """Calculate risk score and save to database"""
+        try:
+            # Calculate risk score
+            start_time = datetime.utcnow()
+            risk_data = RiskEngine.calculate_asset_risk(findings)
+            
+            # Create risk score record
+            from datetime import timedelta
+            
+            risk_score = self.db.query(RiskScore).filter(RiskScore.target == target).first()
+            
+            if risk_score:
+                # Update existing risk score
+                risk_score.score = risk_data["score"]
+                risk_score.factors = risk_data["factors"]
+                risk_score.calculated_at = datetime.utcnow()
+                risk_score.expires_at = datetime.utcnow() + timedelta(days=30)
+            else:
+                # Create new risk score
+                risk_score = RiskScore(
+                    id=str(uuid4()),
+                    target=target,
+                    score=risk_data["score"],
+                    factors=risk_data["factors"],
+                    calculated_at=datetime.utcnow(),
+                    expires_at=datetime.utcnow() + timedelta(days=30)
+                )
+                self.db.add(risk_score)
+                
+            self.db.commit()
+            
+            logger.info(
+                f"Calculated and saved risk score",
+                target=target,
+                score=risk_data["score"],
+                level=risk_data["level"],
+                processing_time=f"{(datetime.utcnow() - start_time).total_seconds():.2f}s"
+            )
+            return True
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to calculate risk score: {e}")
+            return False
+        
+    def _get_risk_level(self, score: int) -> str:
+        """Convert numeric risk score to text level"""
+        if score >= 80:
+            return "critical"
+        elif score >= 60:
+            return "high"
+        elif score >= 40:
+            return "medium"
+        elif score >= 20:
+            return "low"
+        else:
+            return "info"

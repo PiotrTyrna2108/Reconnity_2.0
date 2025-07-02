@@ -1,40 +1,13 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-import ipaddress
-import re
 
-class ScanRequest(BaseModel):
+from app.schemas.asset import AssetBase
+
+class ScanRequest(AssetBase):
     """Schema for scan request"""
-    target: str = Field(..., description="Target to scan (IP, domain, or CIDR)")
     scanner: str = Field(default="nmap", description="Scanner type")
     options: Optional[Dict[str, Any]] = Field(default=None, description="Scanner options")
-    
-    @validator('target')
-    def validate_target(cls, v):
-        """Validate target format"""
-        v = v.strip()
-        
-        # Check if it's an IP address
-        try:
-            ipaddress.ip_address(v)
-            return v
-        except ValueError:
-            pass
-        
-        # Check if it's a CIDR
-        try:
-            ipaddress.ip_network(v, strict=False)
-            return v
-        except ValueError:
-            pass
-        
-        # Check if it's a domain name
-        domain_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$'
-        if re.match(domain_pattern, v):
-            return v
-        
-        raise ValueError('Invalid target format. Must be IP, CIDR, or domain name')
     
     @validator('scanner')
     def validate_scanner(cls, v):
