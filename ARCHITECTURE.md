@@ -8,22 +8,37 @@ Implementacja External Attack Surface Management (EASM) na wzór **FastAPI RealW
 app/
 ├── 🎯 api/                  # API Layer (FastAPI routes, dependencies, errors)
 │   ├── dependencies.py     # Dependency injection
-│   └── errors.py          # Exception handlers
+│   ├── errors.py          # Exception handlers
+│   └── routers/           # Endpoint routers
+│       ├── health.py      # Health check endpoints
+│       └── scan.py        # Scan management endpoints
 ├── ⚙️ core/                # Core configuration
 │   ├── settings.py        # Pydantic settings
-│   └── logging.py         # Structured logging
+│   ├── logging.py         # Structured logging
+│   └── security.py        # Security utilities
 ├── 🧠 services/            # Business Logic Layer
-│   └── scan_service.py    # Domain services
+│   ├── scan_service.py    # Scan domain services
+│   ├── asset_service.py   # Asset management services
+│   └── finding_service.py # Finding analysis services
 ├── 📋 schemas/             # Pydantic models (API contracts)
-│   └── scan.py           # Request/Response schemas
+│   ├── scan.py           # Scan request/response schemas
+│   ├── asset.py          # Asset data schemas
+│   ├── finding.py        # Security finding schemas
+│   └── health.py         # Health check schemas
 ├── 🗃️ models/              # Database models (SQLAlchemy)
-│   └── __init__.py       # Asset, Scan, Finding models
+│   ├── base.py           # Base model definitions
+│   ├── asset.py          # Asset entity model
+│   ├── scan.py           # Scan entity model
+│   └── finding.py        # Finding entity model
 ├── 🔧 tasks/               # Celery async tasks
-│   └── scan_tasks.py     # Background tasks
+│   └── scan_tasks.py     # Background scan tasks
+├── 🗄️ db/                  # Database management
+│   ├── migrations/        # Alembic database migrations
+│   └── repositories/      # Data access repositories
 └── 📊 risk_engine.py      # Risk calculation engine
 ```
 
-## 🚀 **Kluczowe Ulepszenia vs Podstawowa Wersja**
+## 🚀 **Kluczowe Aspekty Architektury**
 
 ### **1. Clean Architecture** ✨
 - **Separation of Concerns**: API ↔ Services ↔ Models
@@ -67,6 +82,13 @@ class ScanService:
         pass
 ```
 
+### **6. Microservice Architecture** 🧩
+- **API Gateway**: Centralne miejsce dostępu do systemu
+- **Core Service**: Zarządzanie skanami i logika biznesowa
+- **Scanner Services**: Wyspecjalizowane serwisy skanujące (nmap, masscan)
+- **Worker & Scheduler**: Asynchroniczne zadania i planowanie
+- **Shared Database & Message Queue**: Komunikacja między serwisami
+
 ## 🔄 **Przepływ Request → Response**
 
 ```
@@ -74,18 +96,23 @@ class ScanService:
 2. API Gateway → Core Service (clean validation)
 3. Core Service → Service Layer (business logic)
 4. Service Layer → Celery Task (async execution)
-5. Scanner → Results Processing (findings extraction)
-6. Risk Engine → Risk Calculation (intelligent scoring)
-7. Response ← Structured JSON (typed schemas)
+5. Scanner Services → Wyspecjalizowane skanery (nmap, masscan)
+6. Scanner → Core Service (wyniki skanowania)
+7. Core Service → Asset Management (identyfikacja i aktualizacja)
+8. Core Service → Finding Processing (analiza podatności)
+9. Risk Engine → Risk Calculation (intelligent scoring)
+10. Response ← Structured JSON (typed schemas)
 ```
 
-## 🧪 **Testowanie Ulepszonej Architektury**
+## 🧪 **Testowanie i Monitoring**
+
+### **API Testing**
 
 ```bash
 # Start services
 ./start.sh --detached
 
-# Test improved validation
+# Test scan creation
 curl -X POST "http://localhost:8080/api/v1/scan" \
   -H "Content-Type: application/json" \
   -d '{
@@ -98,9 +125,42 @@ curl -X POST "http://localhost:8080/api/v1/scan" \
 curl "http://localhost:8080/api/v1/scan/{scan_id}"
 ```
 
+### **Performance Testing**
+
+```bash
+# Uruchomienie testów wydajności
+python -m tests.performance.performance_test
+
+# Uruchomienie z monitoringiem
+make up-monitoring
+# Dostęp do Grafana: http://localhost:3000
+# Dostęp do Prometheus: http://localhost:9090
+```
+
+### **Unit Testing**
+
+```bash
+# Uruchomienie testów jednostkowych
+pytest tests/test_services/
+
+# Uruchomienie wszystkich testów
+pytest
+```
+
 ## 🎯 **Benefits tej Architektury**
 
-### **Compared to Basic Implementation:**
+### **Kluczowe zalety mikrousług:**
+
+| Aspekt | Tradycyjna architektura | Mikrousługi EASM |
+|--------|-------------------------|------------------|
+| **Structure** | Monolityczna aplikacja | Mikrousługi z wyspecjalizowanymi zadaniami |
+| **Skanery** | Zintegrowane moduły | Niezależne mikrousługi skanerów |
+| **Skalowalność** | Utrudniona skalowalność | Selektywne skalowanie poszczególnych usług |
+| **Wdrożenia** | Całościowe wdrożenie | Niezależne wdrażanie komponentów |
+| **Testowanie** | Testy end-to-end | Testy poszczególnych mikrousług |
+| **Odporność** | Pojedynczy punkt awarii | Izolacja awarii w ramach mikrousługi |
+
+### **Zalety Clean Architecture:**
 
 | Aspekt | Basic Version | RealWorld Pattern |
 |--------|---------------|-------------------|
@@ -122,45 +182,73 @@ curl "http://localhost:8080/api/v1/scan/{scan_id}"
 ✅ **Testability**: Mockable dependencies  
 ✅ **Documentation**: Auto-generated OpenAPI  
 
-## 🔮 **Next Steps - Enterprise Features**
+## 🔮 **Enterprise Features**
 
 ```bash
-# 1. Add Authentication & Authorization
+# 1. Authentication & Authorization (Planowane)
 app/
 ├── api/
 │   └── auth/              # JWT, OAuth2, RBAC
 ├── services/
 │   └── auth_service.py    # User management
 
-# 2. Add Repository Pattern
+# 2. Repository Pattern (Zaimplementowane)
 app/
 ├── db/
 │   ├── repositories/      # Data access layer
 │   └── migrations/        # Alembic migrations
 
-# 3. Add Advanced Monitoring
-app/
-├── monitoring/
-│   ├── metrics.py        # Prometheus metrics
-│   └── tracing.py        # OpenTelemetry
+# 3. Advanced Monitoring (Częściowo zaimplementowane)
+monitoring/
+├── prometheus.yml        # Prometheus configuration
+└── future/
+    ├── metrics.py        # Prometheus metrics
+    └── tracing.py        # OpenTelemetry
 
-# 4. Add Testing Framework
+# 4. Testing Framework (Zaimplementowane)
 tests/
-├── unit/                 # Unit tests
-├── integration/          # Integration tests
-└── fixtures/             # Test data
+├── test_api/             # API tests
+├── test_services/        # Service layer tests
+├── test_schemas/         # Schema validation tests
+├── performance/          # Performance tests
+└── conftest.py           # Test fixtures and configuration
 ```
 
-## 📊 **Porównanie z FastAPI RealWorld**
+## 📊 **System Overview**
 
-| Feature | RealWorld (Articles) | EASM (Scans) |
-|---------|---------------------|--------------|
-| **Domain** | Article Management | Security Scanning |
-| **Core Entity** | Article | Scan/Asset |
-| **Auth** | JWT Users | Future: RBAC |
-| **Async** | Database queries | Celery tasks |
-| **Architecture** | Clean Architecture | ✅ Same pattern |
-| **Validation** | Pydantic schemas | ✅ Same approach |
-| **Error Handling** | Custom exceptions | ✅ Same pattern |
+### **Struktura mikrousług**
 
-Ta implementacja łączy **sprawdzone wzorce RealWorld** z **specyfiką bezpieczeństwa** dla profesjonalnej aplikacji EASM! 🎯
+```
+┌───────────────┐      ┌───────────────┐      ┌───────────────┐
+│  easm-api     │─────▶│   easm-core   │─────▶│  scanner-nmap  │
+│  API Gateway  │      │ Core Service  │      │  Nmap Scanner  │
+└───────────────┘      └───────────────┘      └───────────────┘
+       │                      │                      │
+       │                      │                      │
+       │                      ▼                      │
+       │              ┌───────────────┐              │
+       │              │    worker     │              │
+       └─────────────▶│ Task Workers  │◀─────────────┘
+                      └───────────────┘
+                             │
+                             ▼
+                      ┌───────────────┐
+                      │scanner-masscan│
+                      │Masscan Scanner│
+                      └───────────────┘
+```
+
+### **Kluczowe Komponenty**
+
+| Komponent | Rola | Technologie |
+|-----------|------|-------------|
+| **easm-api** | API Gateway, walidacja, przekazywanie żądań | FastAPI, Pydantic |
+| **easm-core** | Główna logika biznesowa, zarządzanie skanami | FastAPI, SQLAlchemy, Celery |
+| **scanner-nmap** | Skanowanie portów i usług | Celery, nmap |
+| **scanner-masscan** | Szybkie skanowanie dużych zakresów | Celery, masscan |
+| **worker** | Wykonywanie zadań asynchronicznych | Celery |
+| **celery-scheduler** | Planowanie cyklicznych zadań | Celery Beat |
+| **db** | Przechowywanie danych | PostgreSQL |
+| **redis** | Message broker, cache | Redis |
+
+Ta architektura łączy **nowoczesne podejście mikrousługowe** z **najlepszymi praktykami FastAPI i Clean Architecture** dla skalowalnego i utrzymywalnego systemu EASM! 🎯

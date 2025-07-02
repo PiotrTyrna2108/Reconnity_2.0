@@ -90,7 +90,7 @@ test-unit:
 # Performance tests
 performance:
 	@echo "🚀 Running performance tests..."
-	python performance_test.py
+	python -m tests.performance.performance_test
 
 # CLI tool
 cli:
