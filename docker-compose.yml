@@ -1,0 +1,132 @@
+services:
+  api:
+    build: ./easm-api
+    environment:
+      CORE_URL: http://core:8001
+      CELERY_BROKER_URL: redis://redis:6379/0
+    ports:
+      - "8080:8000"
+    depends_on:
+      - core
+      - redis
+    networks: [easm_net]
+    restart: unless-stopped
+
+  core:
+    build: ./easm-core
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://easm:easm@db:5432/easm
+    ports:
+      - "8001:8001"
+    depends_on:
+      - redis
+      - db
+    networks: [easm_net]
+    restart: unless-stopped
+
+  worker:
+    build: ./easm-core
+    command: celery -A app.tasks.celery_app worker -l info
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://easm:easm@db:5432/easm
+      CORE_URL: http://core:8001
+    depends_on:
+      - core
+      - redis
+      - db
+    networks: [easm_net]
+    restart: unless-stopped
+
+  scanner-nmap:
+    build: ./scanner-nmap
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CORE_URL: http://core:8001
+    depends_on:
+      - redis
+      - core
+    networks: [easm_net]
+    restart: unless-stopped
+    # Run as privileged for nmap raw socket access
+    privileged: true
+
+  scanner-masscan:
+    build: ./scanner-masscan
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CORE_URL: http://core:8001
+    depends_on:
+      - redis
+      - core
+    networks: [easm_net]
+    restart: unless-stopped
+    # Run as privileged for masscan raw socket access
+    privileged: true
+
+  beat:
+    build: ./easm-core
+    command: celery -A app.tasks.celery_app beat -l info
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://easm:easm@db:5432/easm
+    depends_on:
+      - core
+      - redis
+      - db
+    networks: [easm_net]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    networks: [easm_net]
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: easm
+      POSTGRES_PASSWORD: easm
+      POSTGRES_DB: easm
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks: [easm_net]
+    restart: unless-stopped
+    ports:
+      - "5432:5432"  # Expose for debugging (remove in production)
+
+  # Optional: Add monitoring services
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks: [easm_net]
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks: [easm_net]
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+volumes:
+  db_data:
+  redis_data:
+  grafana_data:
+
+networks:
+  easm_net:
+    driver: bridge

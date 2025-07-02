@@ -1,0 +1,41 @@
+# Docker Compose Override for Development
+# This file extends docker-compose.yml with development-specific settings
+
+services:
+  api:
+    volumes:
+      - ./easm-api/app:/app/app  # Mount source code for hot reload
+    environment:
+      - PYTHONPATH=/app
+      - RELOAD=true
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  core:
+    volumes:
+      - ./easm-core/app:/app/app  # Mount source code for hot reload
+    environment:
+      - PYTHONPATH=/app
+      - RELOAD=true
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+  worker:
+    volumes:
+      - ./easm-core/app:/app/app  # Mount source code for hot reload
+    environment:
+      - PYTHONPATH=/app
+
+  scanner-nmap:
+    volumes:
+      - ./scanner-nmap/app:/app/app  # Mount source code for hot reload
+    environment:
+      - PYTHONPATH=/app
+
+  # Development database with exposed port
+  db:
+    ports:
+      - "5432:5432"  # Expose PostgreSQL for external tools
+
+  # Development Redis with exposed port  
+  redis:
+    ports:
+      - "6379:6379"  # Expose Redis for external tools
