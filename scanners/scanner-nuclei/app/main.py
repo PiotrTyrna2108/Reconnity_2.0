@@ -113,13 +113,39 @@ def build_nuclei_command(target: str, options: Dict[str, Any]) -> list:
         
         cmd.extend(["-t", ",".join(template_paths)])
     
-    # Other optional parameters
+    # Exclude templates
+    exclude_templates = options.get("exclude_templates")
+    if exclude_templates:
+        if isinstance(exclude_templates, list):
+            exclude_templates = ",".join(exclude_templates)
+        cmd.extend(["-exclude-templates", exclude_templates])
+    
+    # Timeout
     if options.get("timeout"):
         cmd.extend(["-timeout", str(options["timeout"])])
     
     # Concurrent executions
     concurrency = options.get("concurrency", "25")
     cmd.extend(["-c", str(concurrency)])
+    
+    # Retries
+    retries = options.get("retries")
+    if retries is not None:
+        cmd.extend(["-retries", str(retries)])
+    
+    # Verbose mode
+    if options.get("verbose", False):
+        cmd.append("-v")
+    
+    # Follow redirects
+    follow_redirects = options.get("follow_redirects")
+    if follow_redirects is not None:
+        cmd.extend(["-follow-redirects" if follow_redirects else "-no-redirects"])
+    
+    # Max host error
+    max_host_error = options.get("max_host_error")
+    if max_host_error is not None:
+        cmd.extend(["-max-host-error", str(max_host_error)])
     
     return cmd
 

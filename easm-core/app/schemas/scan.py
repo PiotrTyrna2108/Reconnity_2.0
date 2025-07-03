@@ -1,21 +1,43 @@
 from pydantic import BaseModel, Field, validator
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union, Literal
 from datetime import datetime
+from enum import Enum
 
 from app.schemas.asset import AssetBase
+from app.schemas.scan_options import NmapScanOptions, MasscanOptions, NucleiOptions
 
-class ScanRequest(AssetBase):
-    """Schema for scan request"""
-    scanner: str = Field(default="nmap", description="Scanner type")
+class ScannerType(str, Enum):
+    NMAP = "nmap"
+    MASSCAN = "masscan"
+    NUCLEI = "nuclei"
+    HTTPX = "httpx"
+
+class BaseScanRequest(AssetBase):
+    """Base schema for all scan requests"""
+    pass
+
+class NmapScanRequest(BaseScanRequest):
+    """Schema for Nmap scan request"""
+    scanner: Literal[ScannerType.NMAP] = ScannerType.NMAP
+    options: Optional[NmapScanOptions] = Field(default_factory=NmapScanOptions)
+
+class MasscanScanRequest(BaseScanRequest):
+    """Schema for Masscan scan request"""
+    scanner: Literal[ScannerType.MASSCAN] = ScannerType.MASSCAN
+    options: Optional[MasscanOptions] = Field(default_factory=MasscanOptions)
+
+class NucleiScanRequest(BaseScanRequest):
+    """Schema for Nuclei scan request"""
+    scanner: Literal[ScannerType.NUCLEI] = ScannerType.NUCLEI
+    options: Optional[NucleiOptions] = Field(default_factory=NucleiOptions)
+
+class GenericScanRequest(BaseScanRequest):
+    """Compatibility schema for generic scan requests"""
+    scanner: ScannerType = Field(default=ScannerType.NMAP, description="Scanner type")
     options: Optional[Dict[str, Any]] = Field(default=None, description="Scanner options")
-    
-    @validator('scanner')
-    def validate_scanner(cls, v):
-        """Validate scanner type"""
-        supported_scanners = {'nmap', 'masscan', 'nuclei', 'httpx'}
-        if v not in supported_scanners:
-            raise ValueError(f'Unsupported scanner. Supported: {supported_scanners}')
-        return v
+
+# Union of all scan request types
+ScanRequest = Union[NmapScanRequest, MasscanScanRequest, NucleiScanRequest, GenericScanRequest]
 
 class ScanResponse(BaseModel):
     """Schema for scan response"""

@@ -29,6 +29,11 @@ The following options are supported:
 - `timeout`: Timeout in seconds for the scan (default: 600)
 - `rate`: Rate limiting in requests per second (default: 150)
 - `concurrency`: Number of concurrent requests (default: 25)
+- `exclude_templates`: Templates to exclude (e.g. 'cves/2020/...')
+- `retries`: Number of times to retry a failed request (default: 1)
+- `verbose`: Enable verbose output for more detailed results (default: false)
+- `follow_redirects`: Follow HTTP redirects during scanning (default: true)
+- `max_host_error`: Maximum number of errors allowed for a host before skipping (default: 30)
 
 ## API Endpoints
 
