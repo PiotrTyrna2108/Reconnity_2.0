@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 from ..services.scan_service import ScanService
 from ..core.settings import settings
@@ -11,3 +11,7 @@ def get_scan_service(db: Session = Depends(get_db)) -> ScanService:
 def get_settings():
     """Dependency to get application settings"""
     return settings
+
+async def get_redis(request: Request):
+    """Dependency to get ARQ Redis connection pool from app state"""
+    return request.app.state.redis

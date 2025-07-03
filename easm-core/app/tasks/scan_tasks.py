@@ -5,37 +5,12 @@ import json
 import os
 from typing import Dict, Any
 import asyncio
-from arq import create_pool, Worker
-from arq.connections import RedisSettings, Redis
+from .queue import redis_settings
 
 logger = logging.getLogger(__name__)
 
 CORE_URL = os.getenv("CORE_URL", "http://core:8001")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-
-# Parse Redis URL to get components
-def parse_redis_url(url: str) -> Dict[str, Any]:
-    """Parse Redis URL into components for ARQ RedisSettings"""
-    if url.startswith("redis://"):
-        url = url[len("redis://"):]
-    
-    host_port, *rest = url.split("/")
-    if ":" in host_port:
-        host, port = host_port.split(":")
-        port = int(port)
-    else:
-        host = host_port
-        port = 6379
-        
-    db = int(rest[0]) if rest else 0
-    
-    return {
-        "host": host,
-        "port": port,
-        "database": db
-    }
-
-redis_settings = RedisSettings(**parse_redis_url(REDIS_URL))
 
 async def scan_asset(ctx: dict, scan_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """

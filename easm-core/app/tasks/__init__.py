@@ -35,4 +35,5 @@ async def get_redis_pool():
     return await create_pool(redis_settings)
 
 # Import tasks to register them
-from .scan_tasks import WorkerSettings  # noqa
+from .scan_tasks import scan_asset, report_scan_result, report_scan_failure
+from .queue import WorkerSettings

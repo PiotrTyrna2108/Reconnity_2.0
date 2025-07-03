@@ -25,7 +25,7 @@ Prometheus regularnie "pyta" (scrape) poszczególne usługi o ich metryki, takie
 - Zużycie pamięci RAM
 - Liczba zapytań HTTP
 - Czas odpowiedzi API
-- Status zadań Celery
+- Status zadań ARQ
 - Wydajność bazy danych
 
 Dane te są następnie przechowywane i analizowane przez Prometheus, a Grafana wykorzystuje je do tworzenia przejrzystych wykresów i dashboardów.
@@ -90,13 +90,13 @@ Każdy monitorowany serwis jest zdefiniowany jako "job" z informacjami o:
 - **http_requests_in_progress** - liczba aktualnie przetwarzanych zapytań
 - **http_exceptions_total** - liczba wyjątków
 
-### 6.2. Metryki Celery
+### 6.2. Metryki ARQ
 
-- **celery_task_received_total** - liczba otrzymanych zadań
-- **celery_task_started_total** - liczba rozpoczętych zadań
-- **celery_task_succeeded_total** - liczba pomyślnie zakończonych zadań
-- **celery_task_failed_total** - liczba nieudanych zadań
-- **celery_task_duration_seconds** - czas wykonania zadania
+- **arq_task_received_total** - liczba otrzymanych zadań
+- **arq_task_started_total** - liczba rozpoczętych zadań
+- **arq_task_completed_total** - liczba pomyślnie zakończonych zadań
+- **arq_task_failed_total** - liczba nieudanych zadań
+- **arq_task_duration_seconds** - czas wykonania zadania
 
 ### 6.3. Metryki bazy danych
 

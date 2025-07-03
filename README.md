@@ -37,8 +37,8 @@
                                                        │
                                                        ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  scanner-nmap   │◀───│     Redis       │◀───│  Celery Worker  │
-│  (Celery Task)  │    │   (Broker)      │    │                 │
+│  scanner-nmap   │◀───│     Redis       │◀───│   ARQ Worker    │
+│   (ARQ Task)    │    │   (Broker)      │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                                        │
                                                        ▼
@@ -80,7 +80,7 @@
 ### Adding New Scanners
 
 1. Create new scanner directory: `scanner-{name}/`
-2. Implement Celery task for the scanner
+2. Implement ARQ task for the scanner
 3. Add service to `docker-compose.yml`
 4. Update core service to route to new scanner
 
@@ -105,7 +105,7 @@ Access monitoring services:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| CELERY_BROKER_URL | redis://redis:6379/0 | Celery broker URL |
+| REDIS_URL | redis://redis:6379/0 | Redis URL for ARQ |
 | DATABASE_URL | postgresql://easm:easm@db:5432/easm | Database connection |
 | CORE_URL | http://core:8001 | Core service URL |
 

@@ -30,4 +30,4 @@ RUN mkdir -p /root/.config/nuclei/templates
 RUN nuclei -update-templates
 
 COPY app/ app/
-CMD ["python", "-m", "arq", "app.main.WorkerSettings"]
+CMD ["python", "-m", "arq", "app.main:WorkerSettings"]

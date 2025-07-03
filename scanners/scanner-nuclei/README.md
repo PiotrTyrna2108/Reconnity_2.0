@@ -5,15 +5,15 @@ This service provides integration with the Nuclei vulnerability scanner for the 
 ## Configuration
 
 The scanner is configured to use the following environment variables:
-- `CELERY_BROKER_URL`: URL to the Redis broker (default: "redis://redis:6379/0")
+- `REDIS_URL`: URL to the Redis broker (default: "redis://redis:6379/0")
 - `CORE_URL`: URL to the core service (default: "http://core:8001")
 
 ## Usage
 
-The scanner is called by the core service via a Celery task:
+The scanner is called by the core service via an ARQ task:
 
 ```python
-celery_app.send_task(
+await redis.enqueue_job(
     "scanner-nuclei.run",
     args=[scan_id, target, options],
     queue="scanner-nuclei"
