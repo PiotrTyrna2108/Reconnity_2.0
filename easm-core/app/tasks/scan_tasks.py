@@ -42,6 +42,15 @@ def scan_asset(self, scan_id: str, payload: Dict[str, Any]):
             )
             logger.info(f"[SCAN_TASK] Delegated masscan scan {scan_id} to scanner service")
             
+        elif scanner == "nuclei":
+            # Send task to nuclei scanner service
+            celery_app.send_task(
+                "scanner-nuclei.run",
+                args=[scan_id, target, options],
+                queue="scanner-nuclei"
+            )
+            logger.info(f"[SCAN_TASK] Delegated nuclei scan {scan_id} to scanner service")
+            
         else:
             raise ValueError(f"Unknown scanner: {scanner}")
         
@@ -58,7 +67,7 @@ def report_scan_completion(scan_id: str, results: Dict[str, Any]):
     try:
         import requests
         response = requests.post(
-            f"{CORE_URL}/internal/scan/{scan_id}/complete",
+            f"{CORE_URL}/api/v1/scan/{scan_id}/complete",
             json=results,
             timeout=10
         )
@@ -66,13 +75,15 @@ def report_scan_completion(scan_id: str, results: Dict[str, Any]):
         logger.info(f"[REPORT] Scan completion reported: {scan_id}")
     except Exception as e:
         logger.error(f"[REPORT] Failed to report completion: {e}")
+        logger.error(f"[REPORT] Response status: {getattr(e.response, 'status_code', 'N/A')}")
+        logger.error(f"[REPORT] Response text: {getattr(e.response, 'text', 'N/A')}")
 
 def report_scan_failure(scan_id: str, error: str):
     """Report scan failure to core service"""
     try:
         import requests
         response = requests.post(
-            f"{CORE_URL}/internal/scan/{scan_id}/fail",
+            f"{CORE_URL}/api/v1/scan/{scan_id}/fail",
             json={"error": error},
             timeout=10
         )
@@ -80,3 +91,5 @@ def report_scan_failure(scan_id: str, error: str):
         logger.info(f"[REPORT] Scan failure reported: {scan_id}")
     except Exception as e:
         logger.error(f"[REPORT] Failed to report failure: {e}")
+        logger.error(f"[REPORT] Response status: {getattr(e.response, 'status_code', 'N/A')}")
+        logger.error(f"[REPORT] Response text: {getattr(e.response, 'text', 'N/A')}")

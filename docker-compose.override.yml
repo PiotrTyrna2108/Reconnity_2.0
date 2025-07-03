@@ -29,6 +29,12 @@ services:
       - ./scanners/scanner-nmap/app:/app/app  # Mount source code for hot reload
     environment:
       - PYTHONPATH=/app
+      
+  scanner-nuclei:
+    volumes:
+      - ./scanners/scanner-nuclei/app:/app/app  # Mount source code for hot reload
+    environment:
+      - PYTHONPATH=/app
 
   # Development database with exposed port
   db:

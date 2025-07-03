@@ -82,6 +82,9 @@ logs-nmap:
 logs-masscan:
 	$(COMPOSE_CMD) logs -f scanner-masscan
 
+logs-nuclei:
+	$(COMPOSE_CMD) logs -f scanner-nuclei
+
 # Unit tests
 test-unit:
 	@echo "🧪 Running unit tests..."

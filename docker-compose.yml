@@ -64,6 +64,17 @@ services:
     restart: unless-stopped
     # Run as privileged for masscan raw socket access
     privileged: true
+    
+  scanner-nuclei:
+    build: ./scanners/scanner-nuclei
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CORE_URL: http://core:8001
+    depends_on:
+      - redis
+      - core
+    networks: [easm_net]
+    restart: unless-stopped
 
   celery-scheduler:
     build: ./easm-core
