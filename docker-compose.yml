@@ -1,18 +1,4 @@
-version: "3.9"
-
 services:
-  api:
-    build: ./easm-api
-    environment:
-      CORE_URL: http://core:8001
-      REDIS_URL: redis://redis:6379/0
-    ports:
-      - "8080:8000"
-    depends_on:
-      - core
-      - redis
-    networks: [easm_net]
-
   core:
     build: ./easm-core
     environment:
@@ -47,7 +33,7 @@ services:
     depends_on:
       - redis
     networks: [easm_net]
-    
+
   scanner-masscan:
     build: ./scanners/scanner-masscan
     command: python -m arq app.main.WorkerSettings
@@ -59,7 +45,7 @@ services:
     depends_on:
       - redis
     networks: [easm_net]
-    
+
   scanner-nuclei:
     build: ./scanners/scanner-nuclei
     command: python -m arq app.main.WorkerSettings

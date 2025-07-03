@@ -48,3 +48,8 @@ app.include_router(health.router, tags=["health"])
 app.include_router(scan.router, prefix="/api/v1", tags=["scan"])
 app.include_router(nuclei_templates.router, prefix="/api/v1", tags=["nuclei"])
 app.include_router(scan_options.router, prefix="/api/v1", tags=["scan"])
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "easm-core"}
