@@ -75,27 +75,27 @@ async def run_nuclei_scan(ctx: Dict, scan_id: str, target: str, options: Dict[st
             scan_results = parse_nuclei_output(process.stdout, target, scan_id, scan_duration)
             logger.info(f"[NUCLEI] Scan completed successfully: {scan_id}")
             
-            # Report results to core service
-            await report_scan_completion(scan_id, scan_results)
+            # Report results to core service via Redis messaging
+            await report_scan_completion(ctx, scan_id, scan_results)
         else:
             error_msg = f"Nuclei scan failed with return code {process.returncode}: {process.stderr}"
             logger.error(f"[NUCLEI] {error_msg}")
             # Log more details about the error
             logger.error(f"[NUCLEI] Stdout: {process.stdout}")
             logger.error(f"[NUCLEI] Stderr: {process.stderr}")
-            await report_scan_failure(scan_id, error_msg)
+            await report_scan_failure(ctx, scan_id, error_msg)
             
     except subprocess.TimeoutExpired:
         error_msg = "Nuclei scan timed out after specified timeout"
         logger.error(f"[NUCLEI] {error_msg}")
-        await report_scan_failure(scan_id, error_msg)
+        await report_scan_failure(ctx, scan_id, error_msg)
         
     except Exception as e:
         error_msg = f"Unexpected error during nuclei scan: {str(e)}"
         logger.error(f"[NUCLEI] {error_msg}")
         import traceback
         logger.error(f"[NUCLEI] Exception traceback: {traceback.format_exc()}")
-        await report_scan_failure(scan_id, error_msg)
+        await report_scan_failure(ctx, scan_id, error_msg)
 
 
 def build_nuclei_command(target: str, options: Dict[str, Any]) -> list:
@@ -292,34 +292,40 @@ def calculate_risk_factors(vulnerabilities: List[Dict[str, Any]]) -> Dict[str, f
     }
 
 
-async def report_scan_completion(scan_id: str, results: Dict[str, Any]):
-    """Report successful scan completion to core service"""
+async def report_scan_completion(ctx: Dict, scan_id: str, results: Dict[str, Any]):
+    """Report scan completion via Redis message to core service"""
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{CORE_URL}/api/v1/scan/{scan_id}/complete",
-                json=results,
-                timeout=10
-            )
-            response.raise_for_status()
-            logger.info(f"[NUCLEI] Scan completion reported: {scan_id}")
+        # Send scan result message to core queue
+        redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
+        await redis_pool.enqueue_job(
+            'process_scan_result',
+            scan_id=scan_id,
+            status='completed',
+            results=results,
+            scanner='nuclei',
+            _queue_name='core'
+        )
+        logger.info(f"[NUCLEI] Scan completion message sent: {scan_id}")
     except Exception as e:
-        logger.error(f"[NUCLEI] Failed to report completion: {e}")
+        logger.error(f"[NUCLEI] Failed to send completion message: {e}")
 
 
-async def report_scan_failure(scan_id: str, error: str):
-    """Report scan failure to core service"""
+async def report_scan_failure(ctx: Dict, scan_id: str, error: str):
+    """Report scan failure via Redis message to core service"""
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{CORE_URL}/api/v1/scan/{scan_id}/fail",
-                json={"error": error},
-                timeout=10
-            )
-            response.raise_for_status()
-            logger.info(f"[NUCLEI] Scan failure reported: {scan_id}")
+        # Send scan failure message to core queue
+        redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
+        await redis_pool.enqueue_job(
+            'process_scan_result',
+            scan_id=scan_id,
+            status='failed',
+            error=error,
+            scanner='nuclei',
+            _queue_name='core'
+        )
+        logger.info(f"[NUCLEI] Scan failure message sent: {scan_id}")
     except Exception as e:
-        logger.error(f"[NUCLEI] Failed to report failure: {e}")
+        logger.error(f"[NUCLEI] Failed to send failure message: {e}")
 
 
 class WorkerSettings:

@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'easm-core'))
 def setup_test_env():
     """Setup test environment variables"""
     os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
-    os.environ.setdefault("CELERY_BROKER_URL", "memory://")
+    os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
     os.environ.setdefault("SECRET_KEY", "test-secret-key")
     os.environ.setdefault("LOG_LEVEL", "DEBUG")
 

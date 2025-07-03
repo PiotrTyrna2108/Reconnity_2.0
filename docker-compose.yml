@@ -12,7 +12,7 @@ services:
 
   worker:
     build: ./easm-core
-    command: python -m arq app.tasks.scan_tasks.WorkerSettings
+    command: python -m arq app.tasks.queue.WorkerSettings
     environment:
       REDIS_URL: redis://redis:6379/0
       PYTHONUNBUFFERED: 1

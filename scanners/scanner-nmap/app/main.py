@@ -70,22 +70,22 @@ async def run_nmap_scan(ctx: Dict, scan_id: str, target: str, options: Dict[str,
             logger.info(f"[NMAP] Scan completed successfully: {scan_id}")
             
             # Report results to core service
-            await report_scan_completion(scan_id, scan_results)
+            await report_scan_completion(ctx, scan_id, scan_results)
             
         else:
             error_msg = f"Nmap scan failed with return code {process.returncode}: {process.stderr}"
             logger.error(f"[NMAP] {error_msg}")
-            await report_scan_failure(scan_id, error_msg)
+            await report_scan_failure(ctx, scan_id, error_msg)
             
     except subprocess.TimeoutExpired:
         error_msg = "Nmap scan timed out after 5 minutes"
         logger.error(f"[NMAP] {error_msg}")
-        await report_scan_failure(scan_id, error_msg)
+        await report_scan_failure(ctx, scan_id, error_msg)
         
     except Exception as e:
         error_msg = f"Unexpected error during nmap scan: {str(e)}"
         logger.error(f"[NMAP] {error_msg}")
-        await report_scan_failure(scan_id, error_msg)
+        await report_scan_failure(ctx, scan_id, error_msg)
 
 
 def build_nmap_command(target: str, options: Dict[str, Any]) -> list:
@@ -195,34 +195,40 @@ def parse_nmap_output(xml_output: str, target: str, scan_id: str, duration: floa
         }
 
 
-async def report_scan_completion(scan_id: str, results: Dict[str, Any]):
-    """Report successful scan completion to core service"""
+async def report_scan_completion(ctx: Dict, scan_id: str, results: Dict[str, Any]):
+    """Report scan completion via Redis message to core service"""
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{CORE_URL}/api/v1/scan/{scan_id}/complete",
-                json=results,
-                timeout=10
-            )
-            response.raise_for_status()
-            logger.info(f"[NMAP] Scan completion reported: {scan_id}")
+        # Send scan result message to core queue
+        redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
+        await redis_pool.enqueue_job(
+            'process_scan_result',
+            scan_id=scan_id,
+            status='completed',
+            results=results,
+            scanner='nmap',
+            _queue_name='core'
+        )
+        logger.info(f"[NMAP] Scan completion message sent: {scan_id}")
     except Exception as e:
-        logger.error(f"[NMAP] Failed to report completion: {e}")
+        logger.error(f"[NMAP] Failed to send completion message: {e}")
 
 
-async def report_scan_failure(scan_id: str, error: str):
-    """Report scan failure to core service"""
+async def report_scan_failure(ctx: Dict, scan_id: str, error: str):
+    """Report scan failure via Redis message to core service"""
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{CORE_URL}/api/v1/scan/{scan_id}/fail",
-                json={"error": error},
-                timeout=10
-            )
-            response.raise_for_status()
-            logger.info(f"[NMAP] Scan failure reported: {scan_id}")
+        # Send scan failure message to core queue
+        redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
+        await redis_pool.enqueue_job(
+            'process_scan_result',
+            scan_id=scan_id,
+            status='failed',
+            error=error,
+            scanner='nmap',
+            _queue_name='core'
+        )
+        logger.info(f"[NMAP] Scan failure message sent: {scan_id}")
     except Exception as e:
-        logger.error(f"[NMAP] Failed to report failure: {e}")
+        logger.error(f"[NMAP] Failed to send failure message: {e}")
 
 
 class WorkerSettings:

@@ -1,18 +1,17 @@
-# filepath: /Users/piotrtyrna/Desktop/Reconnity/easm-microservices/easm-core/app/api/routers/scan.py.new
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
 import json
 
-from app.services.scan_service import ScanService
-from app.schemas.scan import (
+from ...services.scan_service import ScanService
+from ...schemas.scan import (
     ScanRequest, ScanResponse, ScanStatus,
     NmapScanRequest, MasscanScanRequest, NucleiScanRequest, ScannerType
 )
-from app.api.dependencies import get_scan_service
-from app.api.errors import ScanNotFoundException
-from app.core.settings import settings
-from app.core.logging import get_logger
-from app.tasks import get_redis_pool
+from ..dependencies import get_scan_service
+from ..errors import ScanNotFoundException
+from ...core.settings import settings
+from ...core.logging import get_logger
+from ...tasks import get_redis_pool
 
 # Configure logging
 logger = get_logger(__name__)
@@ -68,3 +67,14 @@ async def create_scan(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create scan: {str(e)}"
         )
+
+@router.get("/scan/{scan_id}", response_model=ScanStatus)
+async def get_scan_status(scan_id: str, scan_service: ScanService = Depends(get_scan_service)):
+    """Get scan status and results by scan_id"""
+    result = await scan_service.get_scan_status(scan_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return ScanStatus(**result)
+
+# Note: HTTP callback endpoints have been removed as part of ARQ migration
+# All scanner communication now happens via Redis message queue through process_scan_result function

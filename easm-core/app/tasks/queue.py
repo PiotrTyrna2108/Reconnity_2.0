@@ -16,17 +16,20 @@ class WorkerSettings:
     redis_settings = redis_settings
     queue_name = "core"
     
-    # Import from package level to avoid circular imports
-    from . import scan_asset, report_scan_completion, report_scan_failure
+    # Import functions directly to avoid circular imports
+    from .scan_tasks import scan_asset, process_scan_result
     
     functions = [
         scan_asset,
-        report_scan_completion, 
-        report_scan_failure
+        process_scan_result
     ]
     
     # Add metrics middleware
-    middlewares = [create_metrics_middleware(queue_name)]
+    try:
+        middlewares = [create_metrics_middleware(queue_name)]
+    except Exception as e:
+        logger.warning(f"Failed to initialize metrics middleware: {e}")
+        middlewares = []
     
     async def startup(ctx):
         """Worker startup initialization"""

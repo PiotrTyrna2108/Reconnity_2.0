@@ -14,6 +14,9 @@ This document summarizes the migration from Celery to ARQ for asynchronous task 
   - easm-core/app/api/routers/scan.py
 - Created a new `redis_config.py` file to resolve circular imports
 - Updated environment variable naming from CELERY_BROKER_URL to REDIS_URL
+- **Added new `process_scan_result` function to handle scan results via Redis message queue**
+- **Removed HTTP callback endpoints from API router in favor of direct database updates**
+- **Implemented "smart endpoints, dumb pipes" design pattern using Redis as message bus**
 
 ### Scanner Modules
 Each scanner module was updated to use ARQ instead of Celery:
@@ -22,21 +25,21 @@ Each scanner module was updated to use ARQ instead of Celery:
    - Updated requirements.txt to use ARQ and httpx
    - Rewrote main.py to use ARQ worker pattern
    - Modified scan functions to be async
-   - Updated reporting functions to use httpx instead of requests
+   - Updated reporting functions to use Redis messaging instead of HTTP callbacks
    - Updated Dockerfile to use ARQ worker
 
 2. **Masscan Scanner**
    - Updated requirements.txt to use ARQ and httpx
    - Rewrote main.py to use ARQ worker pattern
    - Modified scan functions to be async
-   - Updated reporting functions to use httpx instead of requests
+   - Updated reporting functions to use Redis messaging instead of HTTP callbacks
    - Updated Dockerfile to use ARQ worker
 
 3. **Nuclei Scanner**
    - Updated requirements.txt to use ARQ and httpx
    - Rewrote main.py to use ARQ worker pattern
    - Modified scan functions to be async
-   - Updated reporting functions to use httpx instead of requests
+   - Updated reporting functions to use Redis messaging instead of HTTP callbacks
    - Updated Dockerfile to use ARQ worker
 
 ### Docker Configuration

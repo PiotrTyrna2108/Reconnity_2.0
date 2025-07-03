@@ -22,17 +22,17 @@ async def scan_asset(ctx: dict, scan_id: str, payload: Dict[str, Any]) -> Dict[s
     
     if not isinstance(payload, dict):
         logger.error(f"[SCAN_TASK] Received invalid payload type: {type(payload)}")
-        await report_scan_failure(scan_id, f"Invalid payload type: {type(payload)}")
+        await report_scan_error(ctx, scan_id, f"Invalid payload type: {type(payload)}")
         raise ValueError(f"Invalid payload type: {type(payload)}")
     
     if "target" not in payload:
         logger.error(f"[SCAN_TASK] Missing 'target' in payload: {payload}")
-        await report_scan_failure(scan_id, "Missing 'target' in payload")
+        await report_scan_error(ctx, scan_id, "Missing 'target' in payload")
         raise ValueError("Missing 'target' in payload")
         
     if "scanner" not in payload:
         logger.error(f"[SCAN_TASK] Missing 'scanner' in payload: {payload}")
-        await report_scan_failure(scan_id, "Missing 'scanner' in payload")
+        await report_scan_error(ctx, scan_id, "Missing 'scanner' in payload")
         raise ValueError("Missing 'scanner' in payload")
     
     target = payload["target"]
@@ -79,38 +79,106 @@ async def scan_asset(ctx: dict, scan_id: str, payload: Dict[str, Any]) -> Dict[s
         
     except Exception as e:
         logger.error(f"[SCAN_TASK] Failed to delegate scan {scan_id}: {str(e)}")
-        await report_scan_failure(scan_id, str(e))
+        await report_scan_error(ctx, scan_id, str(e))
         raise
 
-async def report_scan_completion(scan_id: str, results: Dict[str, Any]):
-    """Report successful scan completion to core service"""
+async def process_scan_result(ctx: dict, scan_id: str, status: str, **kwargs) -> Dict[str, Any]:
+    """
+    Process scan results coming from scanners via Redis message queue
+    This is the preferred way for scanners to report results (instead of HTTP callbacks)
+    """
+    logger.info(f"[PROCESS] Received scan result for {scan_id} with status {status}")
+    
+    # Create database session
+    db = None
+    
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{CORE_URL}/api/v1/scan/{scan_id}/complete",
-                json=results,
-                timeout=10
-            )
-            response.raise_for_status()
-            logger.info(f"[REPORT] Scan completion reported: {scan_id}")
+        # Import here to avoid circular imports
+        from ..services.scan_service import ScanService
+        from ..database import SessionLocal
+        
+        # Create database session
+        db = SessionLocal()
+        scan_service = ScanService(db)
+        
+        if status == "completed":
+            results = kwargs.get("results", {})
+            scanner = kwargs.get("scanner", "unknown")
+            
+            # Use ScanService directly to update the database
+            success = await scan_service.complete_scan(scan_id, results)
+            
+            if success:
+                logger.info(f"[PROCESS] Scan completion processed: {scan_id} (scanner: {scanner})")
+                return {
+                    "status": "success", 
+                    "scan_id": scan_id, 
+                    "message": "Scan results processed successfully"
+                }
+            else:
+                logger.error(f"[PROCESS] Failed to process scan completion: Scan not found")
+                return {
+                    "status": "error",
+                    "scan_id": scan_id,
+                    "message": "Scan not found"
+                }
+            
+        elif status == "failed":
+            error = kwargs.get("error", "Unknown error")
+            scanner = kwargs.get("scanner", "unknown")
+            
+            # Use ScanService directly to update the database
+            success = await scan_service.fail_scan(scan_id, error)
+            
+            if success:
+                logger.info(f"[PROCESS] Scan failure processed: {scan_id} (scanner: {scanner})")
+                return {
+                    "status": "failed", 
+                    "scan_id": scan_id, 
+                    "message": f"Scan failure processed: {error}"
+                }
+            else:
+                logger.error(f"[PROCESS] Failed to process scan failure: Scan not found")
+                return {
+                    "status": "error",
+                    "scan_id": scan_id,
+                    "message": "Scan not found"
+                }
+            
+        else:
+            error_msg = f"Unknown scan status: {status}"
+            logger.error(f"[PROCESS] {error_msg}")
+            return {"status": "error", "message": error_msg}
+            
     except Exception as e:
-        logger.error(f"[REPORT] Failed to report completion: {e}")
-        logger.error(f"[REPORT] Response status: {getattr(e, 'response', None) and getattr(e.response, 'status_code', 'N/A')}")
+        logger.error(f"[PROCESS] Failed to process scan result: {e}")
+        return {"status": "error", "message": f"Failed to process scan result: {str(e)}"}
+    finally:
+        # Close database session if it was created
+        if db:
+            db.close()
 
-
-async def report_scan_failure(scan_id: str, error_message: str):
-    """Report scan failure to core service"""
+async def report_scan_error(ctx: dict, scan_id: str, error_message: str):
+    """
+    Report scan error using Redis message queue
+    This is a helper function used internally by scan_asset
+    """
+    logger.error(f"[SCAN_ERROR] {error_message} for scan {scan_id}")
+    
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{CORE_URL}/api/v1/scan/{scan_id}/fail",
-                json={"error": error_message},
-                timeout=10
-            )
-            response.raise_for_status()
-            logger.info(f"[REPORT] Scan failure reported: {scan_id}")
+        # Process the error directly through process_scan_result function
+        await process_scan_result(
+            ctx,
+            scan_id=scan_id,
+            status='failed',
+            error=error_message,
+            scanner='core'
+        )
     except Exception as e:
-        logger.error(f"[REPORT] Failed to report failure: {e}")
+        logger.error(f"[SCAN_ERROR] Failed to report error via Redis: {str(e)}")
+
+# Note: Legacy HTTP callback methods have been removed as part of ARQ migration
+# All communication now happens via Redis message queue
 
 
 # Helper function to update scan status in database
@@ -132,6 +200,6 @@ async def update_scan_status(scan_id: str, status: str):
 class WorkerSettings:
     """ARQ Worker configuration"""
     redis_settings = redis_settings
-    functions = [scan_asset]
+    functions = [scan_asset, process_scan_result]
     queue_name = 'core'
     job_timeout = 300  # 5 minutes timeout for jobs

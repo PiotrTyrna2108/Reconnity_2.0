@@ -6,7 +6,7 @@ This service provides integration with the Nuclei vulnerability scanner for the 
 
 The scanner is configured to use the following environment variables:
 - `REDIS_URL`: URL to the Redis broker (default: "redis://redis:6379/0")
-- `CORE_URL`: URL to the core service (default: "http://core:8001")
+- `CORE_URL`: URL to the core service (default: "http://core:8001") - used only for logging, results are reported via Redis
 
 ## Usage
 
@@ -35,11 +35,11 @@ The following options are supported:
 - `follow_redirects`: Follow HTTP redirects during scanning (default: true)
 - `max_host_error`: Maximum number of errors allowed for a host before skipping (default: 30)
 
-## API Endpoints
+## Results Reporting
 
-The scanner reports results to the following endpoints in the core service:
-- `POST /api/v1/scan/{scan_id}/complete`: Report successful scan completion
-- `POST /api/v1/scan/{scan_id}/fail`: Report scan failure
+The scanner reports results back to the core service using Redis messaging:
+- Results are sent via Redis ARQ job `process_scan_result` to the `core` queue
+- Both success and failure results use the same message queue but with different status parameters
 
 ## Troubleshooting
 

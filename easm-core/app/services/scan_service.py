@@ -3,7 +3,7 @@ from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.orm import Session
 from ..core.logging import get_logger
-from ..models import Scan, Asset, Finding
+from ..models import Scan, Asset, Finding, RiskScore
 from ..risk_engine import RiskEngine
 
 logger = get_logger(__name__)
