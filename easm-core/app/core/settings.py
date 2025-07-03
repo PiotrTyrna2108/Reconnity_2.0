@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     # Database
     database_url: str = os.getenv("DATABASE_URL", "postgresql://easm:easm@db:5432/easm")
     
-    # Celery
-    celery_broker_url: str = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
+    # Redis (for ARQ)
+    redis_url: str = os.getenv("REDIS_URL", "redis://redis:6379/0")
     
     # Services
     core_url: str = os.getenv("CORE_URL", "http://core:8001")

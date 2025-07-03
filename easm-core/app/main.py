@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 import os
-from celery import Celery
 
 # Import our modules
 from .core.settings import settings

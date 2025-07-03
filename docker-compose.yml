@@ -1,101 +1,69 @@
+# filepath: /Users/piotrtyrna/Desktop/Reconnity/easm-microservices/docker-compose.yml.new
+version: "3.9"
+
 services:
   api:
     build: ./easm-api
     environment:
       CORE_URL: http://core:8001
-      CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8080:8000"
     depends_on:
       - core
       - redis
     networks: [easm_net]
-    restart: unless-stopped
 
   core:
     build: ./easm-core
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      DATABASE_URL: postgresql://easm:easm@db:5432/easm
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8001:8001"
     depends_on:
       - redis
       - db
     networks: [easm_net]
-    restart: unless-stopped
 
   worker:
     build: ./easm-core
-    command: celery -A app.tasks.celery_app worker -l info
+    command: python -m arq app.tasks.WorkerSettings
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      DATABASE_URL: postgresql://easm:easm@db:5432/easm
-      CORE_URL: http://core:8001
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - core
       - redis
-      - db
     networks: [easm_net]
-    restart: unless-stopped
 
   scanner-nmap:
     build: ./scanners/scanner-nmap
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CORE_URL: http://core:8001
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - redis
-      - core
     networks: [easm_net]
-    restart: unless-stopped
-    # Run as privileged for nmap raw socket access
-    privileged: true
 
   scanner-masscan:
     build: ./scanners/scanner-masscan
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CORE_URL: http://core:8001
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - redis
-      - core
     networks: [easm_net]
-    restart: unless-stopped
-    # Run as privileged for masscan raw socket access
-    privileged: true
-    
+
   scanner-nuclei:
     build: ./scanners/scanner-nuclei
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CORE_URL: http://core:8001
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - redis
-      - core
     networks: [easm_net]
-    restart: unless-stopped
-
-  celery-scheduler:
-    build: ./easm-core
-    command: celery -A app.tasks.celery_app beat -l info
-    environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      DATABASE_URL: postgresql://easm:easm@db:5432/easm
-    depends_on:
-      - core
-      - redis
-      - db
-    networks: [easm_net]
-    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
     networks: [easm_net]
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
 
   db:
     image: postgres:16
@@ -105,38 +73,12 @@ services:
       POSTGRES_DB: easm
     volumes:
       - db_data:/var/lib/postgresql/data
-    networks: [easm_net]
-    restart: unless-stopped
     ports:
-      - "5432:5432"  # Expose for debugging (remove in production)
-
-  # Optional: Add monitoring services
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - "5432:5432"
     networks: [easm_net]
-    restart: unless-stopped
-    profiles: ["monitoring"]
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks: [easm_net]
-    restart: unless-stopped
-    profiles: ["monitoring"]
 
 volumes:
   db_data:
-  redis_data:
-  grafana_data:
 
 networks:
   easm_net:
