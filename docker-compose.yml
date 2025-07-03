@@ -1,4 +1,3 @@
-# filepath: /Users/piotrtyrna/Desktop/Reconnity/easm-microservices/docker-compose.yml.new
 version: "3.9"
 
 services:
@@ -27,9 +26,11 @@ services:
 
   worker:
     build: ./easm-core
-    command: python -m arq app.tasks.WorkerSettings
+    command: python -m arq app.tasks.scan_tasks:WorkerSettings
     environment:
       REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: 1
+      LOGLEVEL: INFO
     depends_on:
       - core
       - redis
@@ -37,24 +38,36 @@ services:
 
   scanner-nmap:
     build: ./scanners/scanner-nmap
+    command: python -m arq app.main:WorkerSettings
     environment:
       REDIS_URL: redis://redis:6379/0
+      CORE_URL: http://core:8001
+      PYTHONUNBUFFERED: 1
+      LOGLEVEL: INFO
     depends_on:
       - redis
     networks: [easm_net]
-
+    
   scanner-masscan:
     build: ./scanners/scanner-masscan
+    command: python -m arq app.main:WorkerSettings
     environment:
       REDIS_URL: redis://redis:6379/0
+      CORE_URL: http://core:8001
+      PYTHONUNBUFFERED: 1
+      LOGLEVEL: INFO
     depends_on:
       - redis
     networks: [easm_net]
-
+    
   scanner-nuclei:
     build: ./scanners/scanner-nuclei
+    command: python -m arq app.main:WorkerSettings
     environment:
       REDIS_URL: redis://redis:6379/0
+      CORE_URL: http://core:8001
+      PYTHONUNBUFFERED: 1
+      LOGLEVEL: INFO
     depends_on:
       - redis
     networks: [easm_net]
@@ -67,14 +80,14 @@ services:
 
   db:
     image: postgres:16
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: easm
       POSTGRES_PASSWORD: easm
       POSTGRES_DB: easm
     volumes:
       - db_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     networks: [easm_net]
 
 volumes:
