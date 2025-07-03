@@ -7,10 +7,12 @@ This document summarizes the migration from Celery to ARQ for asynchronous task 
 
 ### Core Components
 - Updated easm-core/requirements.txt to use ARQ instead of Celery
+- Added `prometheus_client==0.20.0` dependency to support ARQ metrics functionality
 - Created ARQ-compatible versions of:
   - easm-core/app/tasks/__init__.py
   - easm-core/app/tasks/scan_tasks.py
   - easm-core/app/api/routers/scan.py
+- Created a new `redis_config.py` file to resolve circular imports
 - Updated environment variable naming from CELERY_BROKER_URL to REDIS_URL
 
 ### Scanner Modules
@@ -48,6 +50,34 @@ Each scanner module was updated to use ARQ instead of Celery:
    docker compose build
    docker compose up -d
    ```
+
+2. Test the scanner functionality:
+   ```bash
+   curl -s -X POST "http://localhost:8080/api/v1/scan" \
+     -H "Content-Type: application/json" \
+     -d '{"target": "scanme.nmap.org", "scanner": "nmap", "options": {"ports": "22,80,443"}}' | jq .
+   ```
+
+3. Check the scan status with the returned scan_id:
+   ```bash
+   curl -s "http://localhost:8080/api/v1/scan/{scan_id}" | jq .
+   ```
+
+## Troubleshooting
+
+If you encounter any issues during the ARQ migration, check the following:
+
+1. **Circular Import Issues**: 
+   - The application now uses a dedicated `redis_config.py` file to centralize Redis settings
+   - This prevents circular imports between `scan_tasks.py` and `queue.py`
+
+2. **Missing Dependencies**:
+   - Ensure `prometheus_client==0.20.0` is included in the requirements.txt file
+   - Run `docker-compose build core worker scanner-nmap scanner-masscan scanner-nuclei` to rebuild containers with new dependencies
+
+3. **Worker Command Issues**:
+   - Ensure the worker commands in docker-compose.yml are correctly formatted
+   - Check the logs with `docker-compose logs worker` or specific scanner logs to identify issues
 
 2. Check that all services are running:
    ```bash
