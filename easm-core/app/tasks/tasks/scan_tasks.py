@@ -221,3 +221,4 @@ class WorkerSettings:
     functions = [scan_asset, process_scan_result]
     queue_name = 'core'
     job_timeout = 300  # 5 minutes timeout for jobs
+    job_timeout = 300  # 5 minutes timeout for jobs

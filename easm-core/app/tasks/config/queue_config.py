@@ -17,14 +17,6 @@ class WorkerSettings:
     redis_settings = redis_settings
     queue_name = "core"
     
-    # Import functions directly to avoid circular imports
-    from .scan_tasks import scan_asset, process_scan_result
-    
-    functions = [
-        scan_asset,
-        process_scan_result
-    ]
-    
     # Add metrics middleware
     try:
         middlewares = [create_metrics_middleware(queue_name)]

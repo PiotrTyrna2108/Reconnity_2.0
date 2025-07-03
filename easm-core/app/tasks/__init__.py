@@ -4,7 +4,7 @@
 from .tasks import scan_asset, process_scan_result
 
 # Import from config directory
-from .config import get_redis_pool, init_arq_pool, enqueue_job, get_job_result
+from .config import get_redis_pool
 from .config import redis_settings, with_redis_retry, RedisRetryClient, WorkerSettings
 
 # Import from monitoring directory
@@ -22,7 +22,4 @@ from .monitoring import (
 )
 
 # For backward compatibility - keep old imports functional
-from .scan_tasks import *
-from .queue import *
-from .retry import *
-from .metrics import *
+# Removed imports from .scan_tasks, .queue, .retry, .metrics as these modules do not exist or are misplaced.
