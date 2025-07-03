@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from ..core.logging import get_logger
 from ..models import Scan, Asset, Finding, RiskScore
-from ..risk_engine import RiskEngine
+from .risk_service import RiskService
 
 logger = get_logger(__name__)
 
@@ -328,7 +328,7 @@ class ScanService:
         try:
             # Calculate risk score
             start_time = datetime.utcnow()
-            risk_data = RiskEngine.calculate_asset_risk(findings)
+            risk_data = RiskService.calculate_asset_risk(findings)
             
             # Create risk score record
             from datetime import timedelta

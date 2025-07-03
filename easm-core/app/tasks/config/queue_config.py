@@ -1,8 +1,9 @@
 import os
+import asyncio
 from arq import create_pool
 from typing import Dict, Any
-from ..core.logging import get_logger
-from .metrics import create_metrics_middleware
+from ...core.logging import get_logger
+from ..monitoring.task_metrics import create_metrics_middleware, monitor_queue_metrics
 from .redis_config import redis_settings
 
 logger = get_logger(__name__)
@@ -36,6 +37,23 @@ class WorkerSettings:
         logger.info(f"ARQ Worker starting with queue: {WorkerSettings.queue_name}")
         ctx["redis"] = await get_redis_pool()
         
+        # Start queue metrics monitoring task if this is the core worker
+        if WorkerSettings.queue_name == "core":
+            # Start queue metrics monitoring in background
+            ctx['metrics_task'] = asyncio.create_task(
+                monitor_queue_metrics(ctx["redis"])
+            )
+            logger.info("Queue metrics monitoring started")
+        
     async def shutdown(ctx):
         """Worker shutdown cleanup"""
         logger.info("ARQ Worker shutting down")
+        
+        # Cancel metrics monitoring task if it exists
+        if 'metrics_task' in ctx:
+            ctx['metrics_task'].cancel()
+            try:
+                await ctx['metrics_task']
+            except asyncio.CancelledError:
+                pass
+            logger.info("Queue metrics monitoring stopped")

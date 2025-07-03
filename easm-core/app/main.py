@@ -29,7 +29,7 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     """Initialize database and ARQ Redis connection on startup"""
-    from .tasks.queue import get_redis_pool
+    from .tasks.config.queue_config import get_redis_pool
     app.state.redis = await get_redis_pool()
     try:
         from .database import init_db

@@ -5,12 +5,24 @@ import json
 import os
 from typing import Dict, Any
 import asyncio
-from .redis_config import redis_settings
+from ..config.redis_config import redis_settings
+from ..config.retry_helpers import with_redis_retry
+from ...core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 CORE_URL = os.getenv("CORE_URL", "http://core:8001")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+
+@with_redis_retry(max_retries=3, retry_delay=1.0, operation_name="enqueue_job")
+async def enqueue_job_with_retry(redis_client, function_name, *args, _queue_name=None, queue_display=None, **kwargs):
+    """Enqueue a job with retry logic"""
+    return await redis_client.enqueue_job(
+        function_name,
+        *args,
+        _queue_name=_queue_name,
+        **kwargs
+    )
 
 async def scan_asset(ctx: dict, scan_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -44,29 +56,35 @@ async def scan_asset(ctx: dict, scan_id: str, payload: Dict[str, Any]) -> Dict[s
     try:
         # Route to appropriate scanner service
         if scanner == "nmap":
-            # Send task to nmap scanner service
-            await ctx['redis'].enqueue_job(
+            # Send task to nmap scanner service with retry logic
+            await enqueue_job_with_retry(
+                ctx['redis'],
                 'run_nmap_scan', 
                 scan_id, target, options,
-                _queue_name='scanner-nmap'
+                _queue_name='scanner-nmap',
+                queue_display="scanner-nmap"
             )
             logger.info(f"[SCAN_TASK] Delegated nmap scan {scan_id} to scanner service")
             
         elif scanner == "masscan":
-            # Send task to masscan scanner service
-            await ctx['redis'].enqueue_job(
+            # Send task to masscan scanner service with retry logic
+            await enqueue_job_with_retry(
+                ctx['redis'],
                 'run_masscan_scan', 
                 scan_id, target, options,
-                _queue_name='scanner-masscan'
+                _queue_name='scanner-masscan',
+                queue_display="scanner-masscan"
             )
             logger.info(f"[SCAN_TASK] Delegated masscan scan {scan_id} to scanner service")
             
         elif scanner == "nuclei":
-            # Send task to nuclei scanner service
-            await ctx['redis'].enqueue_job(
+            # Send task to nuclei scanner service with retry logic
+            await enqueue_job_with_retry(
+                ctx['redis'],
                 'run_nuclei_scan', 
                 scan_id, target, options,
-                _queue_name='scanner-nuclei'
+                _queue_name='scanner-nuclei',
+                queue_display="scanner-nuclei"
             )
             logger.info(f"[SCAN_TASK] Delegated nuclei scan {scan_id} to scanner service")
             

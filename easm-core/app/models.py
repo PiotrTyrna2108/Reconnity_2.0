@@ -1,3 +1,10 @@
+# =====================================================================
+# DEPRECATED: Ten plik jest przestarzały i nie powinien być używany.
+# Wszystkie modele są teraz zdefiniowane w katalogu app/models/
+# Używaj importów z app.models zamiast z tego pliku.
+# Pozostawiono jako odniesienie do poprzedniej wersji systemu.
+# =====================================================================
+
 from sqlalchemy import Column, String, DateTime, JSON, Text, Integer, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
