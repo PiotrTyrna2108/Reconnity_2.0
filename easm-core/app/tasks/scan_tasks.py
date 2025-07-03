@@ -5,7 +5,7 @@ import json
 import os
 from typing import Dict, Any
 import asyncio
-from .queue import redis_settings
+from .redis_config import redis_settings
 
 logger = logging.getLogger(__name__)
 
