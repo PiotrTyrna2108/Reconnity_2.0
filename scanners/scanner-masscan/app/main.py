@@ -17,9 +17,8 @@ logger = logging.getLogger(__name__)
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CORE_URL = os.getenv("CORE_URL", "http://core:8001")
 
-# Parse Redis URL
 def parse_redis_url(url: str):
-    """Parse Redis URL into components for ARQ RedisSettings"""
+    """Parsuje URL Redis na komponenty wymagane przez ARQ RedisSettings"""
     if url.startswith("redis://"):
         url = url[len("redis://"):]
     
@@ -41,7 +40,8 @@ def parse_redis_url(url: str):
 
 async def run_masscan_scan(ctx: Dict, scan_id: str, target: str, options: Dict[str, Any] = None):
     """
-    Execute masscan scan for given target
+    Główna funkcja wykonująca skan masscan dla podanego celu.
+    Obsługuje resolucję DNS, budowanie komendy, wykonanie skanu i parsowanie wyników.
     """
     logger.info(f"[MASSCAN] Starting scan for {target} (id={scan_id})")
     
@@ -49,10 +49,10 @@ async def run_masscan_scan(ctx: Dict, scan_id: str, target: str, options: Dict[s
         options = {}
     
     try:
-        # Resolve domain name to IP if needed (masscan only works with IPs)
+        # Rozwiąż nazwę domeny na IP (masscan wymaga adresów IP)
         import socket
         try:
-            # Check if target is not already an IP address
+            # Sprawdź czy target nie jest już adresem IP
             if not any(c.isdigit() for c in target.replace('.', '')):
                 logger.info(f"[MASSCAN] Resolving domain name: {target}")
                 target_ip = socket.gethostbyname(target)
@@ -64,27 +64,27 @@ async def run_masscan_scan(ctx: Dict, scan_id: str, target: str, options: Dict[s
             await report_scan_failure(scan_id, error_msg)
             return
             
-        # Build masscan command
+        # Zbuduj komendę masscan z parametrami
         masscan_args = build_masscan_command(target, options)
         logger.info(f"[MASSCAN] Running command: {' '.join(masscan_args)}")
         
-        # Execute masscan scan
+        # Wykonaj skan masscan jako subprocess
         start_time = time.time()
         process = subprocess.run(
             masscan_args,
             capture_output=True,
             text=True,
-            timeout=120  # 2 minute timeout for masscan (faster than nmap)
+            timeout=120  # Timeout 2 minuty (masscan jest szybszy niż nmap)
         )
         scan_duration = time.time() - start_time
         
         if process.returncode == 0:
-            # Parse masscan output
+            # Parsuj wyniki masscan do struktury danych
             scan_results = parse_masscan_output(process.stdout, target, scan_id, scan_duration)
             
             logger.info(f"[MASSCAN] Scan completed successfully: {scan_id}")
             
-            # Report results to core service via Redis messaging
+            # Wyślij wyniki do serwisu core przez Redis
             await report_scan_completion(ctx, scan_id, scan_results)
             
         else:
@@ -104,28 +104,28 @@ async def run_masscan_scan(ctx: Dict, scan_id: str, target: str, options: Dict[s
 
 
 def build_masscan_command(target: str, options: Dict[str, Any]) -> list:
-    """Build masscan command with appropriate flags"""
+    """Buduje komendę masscan z odpowiednimi flagami na podstawie opcji skanu"""
     cmd = ["masscan"]
     
-    # Add target
+    # Dodaj cel skanowania
     cmd.append(target)
     
-    # Add ports
+    # Dodaj zakres portów
     if "ports" in options:
         cmd.extend(["-p", options["ports"]])
     else:
-        cmd.extend(["-p", "1-10000"])  # Default port range
+        cmd.extend(["-p", "1-10000"])  # Domyślny zakres portów
     
-    # Add rate limiting
+    # Dodaj ograniczenie szybkości
     if "rate" in options:
         cmd.extend(["--rate", str(options["rate"])])
     else:
-        cmd.extend(["--rate", "1000"])  # Default rate
+        cmd.extend(["--rate", "1000"])  # Domyślna szybkość
     
-    # Add json output
+    # Ustaw format wyjścia na JSON
     cmd.extend(["--output-format", "json", "--output-filename", "-"])
     
-    # Exclude reserved addresses if exclude file exists
+    # Wyklucz zarezerwowane adresy jeśli plik istnieje
     exclude_file = "/etc/masscan/exclude.conf"
     if os.path.exists(exclude_file):
         cmd.append(f"--exclude-file={exclude_file}")
@@ -137,9 +137,9 @@ def build_masscan_command(target: str, options: Dict[str, Any]) -> list:
 
 
 def parse_masscan_output(json_output: str, target: str, scan_id: str, duration: float) -> Dict[str, Any]:
-    """Parse masscan JSON output and extract relevant information"""
+    """Parsuje wyjście JSON z masscan i wyciąga istotne informacje o otwartych portach"""
     try:
-        # Handle the case when masscan doesn't produce any output
+        # Obsłuż przypadek gdy masscan nie zwrócił żadnych wyników
         if not json_output.strip():
             logger.warning(f"[MASSCAN] No output for {target}")
             return {
@@ -152,7 +152,7 @@ def parse_masscan_output(json_output: str, target: str, scan_id: str, duration: 
                 "services": {}
             }
         
-        # Parse the JSON output (masscan outputs one JSON object per line)
+        # Parsuj wyjście JSON (masscan zwraca jeden obiekt JSON na linię)
         results = {
             "scanner": "masscan",
             "target": target,
@@ -176,7 +176,7 @@ def parse_masscan_output(json_output: str, target: str, scan_id: str, duration: 
                         port_number = port["port"]
                         results["open_ports"].append(port_number)
                         
-                        # Basic service identification
+                        # Podstawowa identyfikacja usługi na podstawie portu
                         service_name = identify_service_by_port(port_number)
                         results["services"][str(port_number)] = {
                             "name": service_name,
@@ -190,7 +190,7 @@ def parse_masscan_output(json_output: str, target: str, scan_id: str, duration: 
         return results
     except Exception as e:
         logger.error(f"[MASSCAN] Failed to parse output: {e}")
-        # Return basic results if parsing fails
+        # Zwróć podstawowe wyniki jeśli parsowanie się nie udało
         return {
             "scanner": "masscan",
             "target": target,
@@ -203,7 +203,7 @@ def parse_masscan_output(json_output: str, target: str, scan_id: str, duration: 
 
 
 def identify_service_by_port(port: int) -> str:
-    """Basic service identification by well-known ports"""
+    """Identyfikuje usługę na podstawie znanego numeru portu"""
     common_ports = {
         21: "ftp",
         22: "ssh",
@@ -229,9 +229,9 @@ def identify_service_by_port(port: int) -> str:
 
 
 async def report_scan_completion(ctx: Dict, scan_id: str, results: Dict[str, Any]):
-    """Report scan completion via Redis message to core service"""
+    """Wysyła wyniki ukończonego skanu do serwisu core przez kolejkę Redis"""
     try:
-        # Send scan result message to core queue
+        # Wyślij wiadomość z wynikami skanu do kolejki core
         redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
         await redis_pool.enqueue_job(
             'process_scan_result',
@@ -247,9 +247,9 @@ async def report_scan_completion(ctx: Dict, scan_id: str, results: Dict[str, Any
 
 
 async def report_scan_failure(ctx: Dict, scan_id: str, error: str):
-    """Report scan failure via Redis message to core service"""
+    """Wysyła informację o błędzie skanu do serwisu core przez kolejkę Redis"""
     try:
-        # Send scan failure message to core queue
+        # Wyślij wiadomość o błędzie skanu do kolejki core
         redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
         await redis_pool.enqueue_job(
             'process_scan_result',
@@ -265,13 +265,14 @@ async def report_scan_failure(ctx: Dict, scan_id: str, error: str):
 
 
 class WorkerSettings:
-    """ARQ Worker settings"""
+    """Konfiguracja ARQ worker'a - definiuje funkcje, połączenie Redis i nazwę kolejki"""
     functions = [run_masscan_scan]
     redis_settings = parse_redis_url(REDIS_URL)
     queue_name = 'scanner-masscan'
 
 
 if __name__ == "__main__":
+    """Punkt wejścia - uruchamia ARQ worker'a jeśli podano argument 'worker'"""
     logger.info("[MASSCAN] Starting Masscan scanner service with ARQ...")
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == 'worker':

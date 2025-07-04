@@ -19,7 +19,7 @@ CORE_URL = os.getenv("CORE_URL", "http://core:8001")
 
 # Parse Redis URL
 def parse_redis_url(url: str):
-    """Parse Redis URL into components for ARQ RedisSettings"""
+    """Parsuje URL Redis na komponenty wymagane przez ARQ RedisSettings"""
     if url.startswith("redis://"):
         url = url[len("redis://"):]
     
@@ -41,7 +41,8 @@ def parse_redis_url(url: str):
 
 async def run_nmap_scan(ctx: Dict, scan_id: str, target: str, options: Dict[str, Any] = None):
     """
-    Execute nmap scan for given target
+    Główna funkcja wykonująca zaawansowany skan nmap z detekcją OS i usług.
+    Nmap to potężniejszy skaner niż masscan - wolniejszy ale bardziej dokładny.
     """
     logger.info(f"[NMAP] Starting scan for {target} (id={scan_id})")
     
@@ -49,27 +50,27 @@ async def run_nmap_scan(ctx: Dict, scan_id: str, target: str, options: Dict[str,
         options = {}
     
     try:
-        # Build nmap command
+        # Zbuduj komendę nmap z parametrami skanowania
         nmap_args = build_nmap_command(target, options)
         logger.info(f"[NMAP] Running command: {' '.join(nmap_args)}")
         
-        # Execute nmap scan (using subprocess since nmap doesn't support async)
+        # Wykonaj skan nmap (subprocess bo nmap nie wspiera async)
         start_time = time.time()
         process = subprocess.run(
             nmap_args,
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=300  # Timeout 5 minut (nmap jest wolniejszy)
         )
         scan_duration = time.time() - start_time
         
         if process.returncode == 0:
-            # Parse nmap output
+            # Parsuj wyjście XML z nmap do struktury danych
             scan_results = parse_nmap_output(process.stdout, target, scan_id, scan_duration)
             
             logger.info(f"[NMAP] Scan completed successfully: {scan_id}")
             
-            # Report results to core service
+            # Wyślij wyniki do serwisu core
             await report_scan_completion(ctx, scan_id, scan_results)
             
         else:
@@ -89,41 +90,41 @@ async def run_nmap_scan(ctx: Dict, scan_id: str, target: str, options: Dict[str,
 
 
 def build_nmap_command(target: str, options: Dict[str, Any]) -> list:
-    """Build nmap command with appropriate flags"""
+    """Buduje zaawansowaną komendę nmap z flagami do detekcji OS i usług"""
     cmd = ["nmap"]
     
-    # Default options for security scanning
+    # Domyślne opcje dla skanowania bezpieczeństwa
     cmd.extend([
-        "-sS",  # TCP SYN scan
-        "-O",   # OS detection
-        "-sV",  # Service version detection
-        "-sC",  # Default scripts
-        "--open",  # Only show open ports
-        "-oX", "-",  # XML output to stdout
+        "-sS",  # TCP SYN scan (stealth)
+        "-O",   # Detekcja systemu operacyjnego
+        "-sV",  # Detekcja wersji usług
+        "-sC",  # Domyślne skrypty NSE
+        "--open",  # Pokazuj tylko otwarte porty
+        "-oX", "-",  # Wyjście XML na stdout
     ])
     
-    # Add custom options if provided
+    # Dodaj niestandardowe opcje jeśli podane
     if "ports" in options:
         cmd.extend(["-p", options["ports"]])
     else:
-        cmd.extend(["-p", "1-10000"])  # Default port range
+        cmd.extend(["-p", "1-10000"])  # Domyślny zakres portów
     
     if options.get("aggressive", False):
-        cmd.append("-A")
+        cmd.append("-A")  # Agresywne skanowanie (wszystko naraz)
     
     if options.get("timing"):
         cmd.extend(["-T", str(options["timing"])])
     else:
-        cmd.extend(["-T", "4"])  # Default aggressive timing
+        cmd.extend(["-T", "4"])  # Domyślne agresywne tempo
     
-    # Add target
+    # Dodaj cel skanowania
     cmd.append(target)
     
     return cmd
 
 
 def parse_nmap_output(xml_output: str, target: str, scan_id: str, duration: float) -> Dict[str, Any]:
-    """Parse nmap XML output and extract relevant information"""
+    """Parsuje wyjście XML z nmap i wyciąga szczegółowe informacje o portach, usługach i OS"""
     try:
         import xml.etree.ElementTree as ET
         root = ET.fromstring(xml_output)
@@ -140,13 +141,13 @@ def parse_nmap_output(xml_output: str, target: str, scan_id: str, duration: floa
             "vulnerabilities": []
         }
         
-        # Parse host information
+        # Parsuj informacje o hoście
         for host in root.findall("host"):
-            # Get host status
+            # Sprawdź status hosta
             status = host.find("status")
             if status is not None and status.get("state") == "up":
                 
-                # Parse ports
+                # Parsuj porty
                 ports_elem = host.find("ports")
                 if ports_elem is not None:
                     for port in ports_elem.findall("port"):
@@ -157,7 +158,7 @@ def parse_nmap_output(xml_output: str, target: str, scan_id: str, duration: floa
                         if state is not None and state.get("state") == "open":
                             results["open_ports"].append(int(port_id))
                             
-                            # Get service information
+                            # Pobierz informacje o usłudze
                             service = port.find("service")
                             if service is not None:
                                 service_info = {
@@ -168,7 +169,7 @@ def parse_nmap_output(xml_output: str, target: str, scan_id: str, duration: floa
                                 }
                                 results["services"][port_id] = service_info
                 
-                # Parse OS information
+                # Parsuj informacje o systemie operacyjnym
                 os_elem = host.find("os")
                 if os_elem is not None:
                     for osmatch in os_elem.findall("osmatch"):
@@ -183,7 +184,7 @@ def parse_nmap_output(xml_output: str, target: str, scan_id: str, duration: floa
         
     except Exception as e:
         logger.error(f"[NMAP] Failed to parse XML output: {e}")
-        # Return basic results if parsing fails
+        # Zwróć podstawowe wyniki jeśli parsowanie się nie udało
         return {
             "scanner": "nmap",
             "target": target,
@@ -196,9 +197,9 @@ def parse_nmap_output(xml_output: str, target: str, scan_id: str, duration: floa
 
 
 async def report_scan_completion(ctx: Dict, scan_id: str, results: Dict[str, Any]):
-    """Report scan completion via Redis message to core service"""
+    """Wysyła wyniki ukończonego skanu nmap do serwisu core przez kolejkę Redis"""
     try:
-        # Send scan result message to core queue
+        # Wyślij wiadomość z wynikami skanu do kolejki core
         redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
         await redis_pool.enqueue_job(
             'process_scan_result',
@@ -214,9 +215,9 @@ async def report_scan_completion(ctx: Dict, scan_id: str, results: Dict[str, Any
 
 
 async def report_scan_failure(ctx: Dict, scan_id: str, error: str):
-    """Report scan failure via Redis message to core service"""
+    """Wysyła informację o błędzie skanu nmap do serwisu core przez kolejkę Redis"""
     try:
-        # Send scan failure message to core queue
+        # Wyślij wiadomość o błędzie skanu do kolejki core
         redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
         await redis_pool.enqueue_job(
             'process_scan_result',
@@ -232,7 +233,7 @@ async def report_scan_failure(ctx: Dict, scan_id: str, error: str):
 
 
 class WorkerSettings:
-    """ARQ Worker settings"""
+    """Konfiguracja ARQ worker'a dla skannera nmap - definiuje funkcje i kolejkę"""
     functions = [run_nmap_scan]
     redis_settings = parse_redis_url(REDIS_URL)
     queue_name = 'scanner-nmap'

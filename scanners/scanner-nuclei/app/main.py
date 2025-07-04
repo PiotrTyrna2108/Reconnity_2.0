@@ -19,7 +19,7 @@ CORE_URL = os.getenv("CORE_URL", "http://core:8001")
 
 # Parse Redis URL
 def parse_redis_url(url: str):
-    """Parse Redis URL into components for ARQ RedisSettings"""
+    """Parsuje URL Redis na komponenty wymagane przez ARQ RedisSettings"""
     if url.startswith("redis://"):
         url = url[len("redis://"):]
     
@@ -41,7 +41,8 @@ def parse_redis_url(url: str):
 
 async def run_nuclei_scan(ctx: Dict, scan_id: str, target: str, options: Dict[str, Any] = None):
     """
-    Execute nuclei vulnerability scan for given target
+    Główna funkcja wykonująca skan podatności z nuclei.
+    Nuclei to skaner podatności używający szablonów do wykrywania problemów bezpieczeństwa.
     """
     logger.info(f"[NUCLEI] Starting vulnerability scan for {target} (id={scan_id})")
     
@@ -49,23 +50,23 @@ async def run_nuclei_scan(ctx: Dict, scan_id: str, target: str, options: Dict[st
         options = {}
     
     try:
-        # Build nuclei command
+        # Zbuduj komendę nuclei z parametrami skanowania podatności
         nuclei_args = build_nuclei_command(target, options)
         logger.info(f"[NUCLEI] Running command: {' '.join(nuclei_args)}")
         
-        # Execute nuclei scan
+        # Wykonaj skan nuclei
         start_time = time.time()
         process = subprocess.run(
             nuclei_args,
             capture_output=True,
             text=True,
-            timeout=int(options.get("timeout", 600))  # timeout in seconds
+            timeout=int(options.get("timeout", 600))  # timeout w sekundach
         )
         scan_duration = time.time() - start_time
         logger.info(f"[NUCLEI] Scan finished in {scan_duration:.2f} seconds with return code {process.returncode}")
         
-        if process.returncode == 0 or process.stdout:  # Check if we have output even with non-zero return code
-            # Parse nuclei output
+        if process.returncode == 0 or process.stdout:  # Sprawdź czy mamy wynik nawet przy błędzie
+            # Parsuj wyjście nuclei do struktury danych
             logger.info(f"[NUCLEI] Got output of {len(process.stdout)} bytes")
             if len(process.stdout) > 100:
                 logger.info(f"[NUCLEI] Sample output: {process.stdout[:100]}...")
@@ -75,12 +76,12 @@ async def run_nuclei_scan(ctx: Dict, scan_id: str, target: str, options: Dict[st
             scan_results = parse_nuclei_output(process.stdout, target, scan_id, scan_duration)
             logger.info(f"[NUCLEI] Scan completed successfully: {scan_id}")
             
-            # Report results to core service via Redis messaging
+            # Wyślij wyniki do serwisu core przez Redis
             await report_scan_completion(ctx, scan_id, scan_results)
         else:
             error_msg = f"Nuclei scan failed with return code {process.returncode}: {process.stderr}"
             logger.error(f"[NUCLEI] {error_msg}")
-            # Log more details about the error
+            # Loguj więcej szczegółów o błędzie
             logger.error(f"[NUCLEI] Stdout: {process.stdout}")
             logger.error(f"[NUCLEI] Stderr: {process.stderr}")
             await report_scan_failure(ctx, scan_id, error_msg)
@@ -99,78 +100,78 @@ async def run_nuclei_scan(ctx: Dict, scan_id: str, target: str, options: Dict[st
 
 
 def build_nuclei_command(target: str, options: Dict[str, Any]) -> list:
-    """Build nuclei command with appropriate flags"""
+    """Buduje komendę nuclei z odpowiednimi flagami do skanowania podatności"""
     cmd = ["nuclei"]
     
-    # Target specification
+    # Specyfikacja celu
     cmd.extend(["-target", target])
     
-    # Output format
-    cmd.extend(["-jsonl", "-silent"])  # JSON output without banner
+    # Format wyjścia
+    cmd.extend(["-jsonl", "-silent"])  # JSON bez banera
     
-    # Rate limiting
-    rate = options.get("rate", "150")  # requests per second
+    # Ograniczenie szybkości
+    rate = options.get("rate", "150")  # żądań na sekundę
     cmd.extend(["-rate-limit", str(rate)])
     
-    # Severity filtering
+    # Filtrowanie według ważności
     severity = options.get("severity", ["critical", "high", "medium"])
     if severity:
-        # Handle both list and string formats
+        # Obsłuż zarówno listę jak i string
         if isinstance(severity, list):
             severity_str = ",".join(severity)
         else:
             severity_str = severity
         cmd.extend(["-severity", severity_str])
     
-    # Template selection with explicit path
+    # Wybór szablonów z jawną ścieżką
     templates_dir = "/root/nuclei-templates"
     templates_type = options.get("templates", ["cves"])
     if templates_type:
-        # Handle both list and string formats
+        # Obsłuż zarówno listę jak i string
         if isinstance(templates_type, list):
             template_list = templates_type
         else:
             template_list = templates_type.split(",")
         
-        # For each template type, construct full path
+        # Dla każdego typu szablonu, skonstruuj pełną ścieżkę
         template_paths = []
         for t_type in template_list:
             t_type = t_type.strip()
-            # If it's already a full path, use as-is
+            # Jeśli to już pełna ścieżka, użyj tak jak jest
             if t_type.startswith("/"):
                 template_paths.append(t_type)
-            # If it's a relative path starting with template dir name, use as-is
+            # Jeśli to relatywna ścieżka zaczynająca się od nazwy katalogu szablonów
             elif t_type.startswith("http/") or t_type.startswith("dns/") or t_type.startswith("file/"):
                 template_paths.append(f"{templates_dir}/{t_type}")
-            # Otherwise, assume it's a category in the templates directory
+            # W przeciwnym razie, załóż że to kategoria w katalogu szablonów
             else:
                 template_paths.append(f"{templates_dir}/{t_type}")
         
         if template_paths:
             cmd.extend(["-t", ",".join(template_paths)])
     
-    # Concurrency
+    # Współbieżność
     concurrency = options.get("concurrency", "25")
     cmd.extend(["-c", str(concurrency)])
     
-    # Retries
+    # Ponowne próby
     retries = options.get("retries", "1")
     cmd.extend(["-retries", str(retries)])
     
-    # Timeout settings
-    timeout_seconds = options.get("timeout", "5")  # Request timeout in seconds
+    # Ustawienia timeout
+    timeout_seconds = options.get("timeout", "5")  # Timeout żądania w sekundach
     cmd.extend(["-timeout", f"{timeout_seconds}"])
     
-    # Verbose output
+    # Szczegółowy output
     if options.get("verbose", False):
         cmd.append("-v")
     
-    # Follow redirects
+    # Śledź przekierowania
     follow_redirects = options.get("follow_redirects")
     if follow_redirects is not None:
         cmd.extend(["-follow-redirects" if follow_redirects else "-no-redirects"])
     
-    # Max host error
+    # Maksymalne błędy hosta
     max_host_error = options.get("max_host_error")
     if max_host_error is not None:
         cmd.extend(["-max-host-error", str(max_host_error)])
@@ -179,9 +180,9 @@ def build_nuclei_command(target: str, options: Dict[str, Any]) -> list:
 
 
 def parse_nuclei_output(json_output: str, target: str, scan_id: str, duration: float) -> Dict[str, Any]:
-    """Parse nuclei JSON output and extract relevant information"""
+    """Parsuje wyjście JSON z nuclei i wyciąga informacje o podatnościach"""
     try:
-        # Handle the case when nuclei doesn't produce any output
+        # Obsłuż przypadek gdy nuclei nie zwrócił żadnych wyników
         if not json_output.strip():
             logger.warning(f"[NUCLEI] No output for {target}")
             return {
@@ -199,7 +200,7 @@ def parse_nuclei_output(json_output: str, target: str, scan_id: str, duration: f
                 }
             }
         
-        # Parse the JSONL output (one JSON object per line)
+        # Parsuj wyjście JSONL (jeden obiekt JSON na linię)
         results = {
             "scanner": "nuclei",
             "target": target,
@@ -250,13 +251,13 @@ def parse_nuclei_output(json_output: str, target: str, scan_id: str, duration: f
                 logger.warning(f"[NUCLEI] Error processing finding on line {line_num}: {str(e)}")
                 continue
         
-        # Update stats
-        results["stats"]["hosts_found"] = 1  # Since we're scanning a single target
+        # Aktualizuj statystyki
+        results["stats"]["hosts_found"] = 1  # Skanujemy pojedynczy cel
         results["stats"]["total_findings"] = len(results["vulnerabilities"])
         results["stats"]["error_count"] = error_count
         results["stats"]["processed_lines"] = finding_count
         
-        # Calculate risk factors
+        # Oblicz czynniki ryzyka
         if results["vulnerabilities"]:
             risk_factors = calculate_risk_factors(results["vulnerabilities"])
             results["stats"].update(risk_factors)
@@ -265,7 +266,7 @@ def parse_nuclei_output(json_output: str, target: str, scan_id: str, duration: f
         
     except Exception as e:
         logger.error(f"[NUCLEI] Failed to parse output: {e}")
-        # Return basic results if parsing fails
+        # Zwróć podstawowe wyniki jeśli parsowanie się nie udało
         return {
             "scanner": "nuclei",
             "target": target,
@@ -285,8 +286,8 @@ def parse_nuclei_output(json_output: str, target: str, scan_id: str, duration: f
 
 
 def calculate_risk_factors(vulnerabilities: List[Dict[str, Any]]) -> Dict[str, float]:
-    """Calculate risk factors based on vulnerability findings"""
-    # Severity weights for risk calculation
+    """Oblicza czynniki ryzyka na podstawie znalezionych podatności"""
+    # Wagi ważności dla kalkulacji ryzyka
     severity_weights = {
         "critical": 10.0,
         "high": 7.5,
@@ -296,14 +297,14 @@ def calculate_risk_factors(vulnerabilities: List[Dict[str, Any]]) -> Dict[str, f
         "unknown": 1.0
     }
     
-    # Count vulnerabilities by severity
+    # Policz podatności według ważności
     severity_counts = {k: 0 for k in severity_weights.keys()}
     
     for vuln in vulnerabilities:
         severity = vuln.get("severity", "unknown").lower()
         severity_counts[severity] = severity_counts.get(severity, 0) + 1
     
-    # Calculate risk score (weighted sum)
+    # Oblicz wynik ryzyka (suma ważona)
     risk_score = sum(severity_counts[sev] * severity_weights[sev] for sev in severity_counts)
     
     return {
@@ -313,9 +314,9 @@ def calculate_risk_factors(vulnerabilities: List[Dict[str, Any]]) -> Dict[str, f
 
 
 async def report_scan_completion(ctx: Dict, scan_id: str, results: Dict[str, Any]):
-    """Report scan completion via Redis message to core service"""
+    """Wysyła wyniki ukończonego skanu podatności do serwisu core przez kolejkę Redis"""
     try:
-        # Send scan result message to core queue
+        # Wyślij wiadomość z wynikami skanu do kolejki core
         redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
         await redis_pool.enqueue_job(
             'process_scan_result',
@@ -331,9 +332,9 @@ async def report_scan_completion(ctx: Dict, scan_id: str, results: Dict[str, Any
 
 
 async def report_scan_failure(ctx: Dict, scan_id: str, error: str):
-    """Report scan failure via Redis message to core service"""
+    """Wysyła informację o błędzie skanu podatności do serwisu core przez kolejkę Redis"""
     try:
-        # Send scan failure message to core queue
+        # Wyślij wiadomość o błędzie skanu do kolejki core
         redis_pool = ctx.get('redis') or await create_pool(parse_redis_url(REDIS_URL))
         await redis_pool.enqueue_job(
             'process_scan_result',
@@ -349,7 +350,7 @@ async def report_scan_failure(ctx: Dict, scan_id: str, error: str):
 
 
 class WorkerSettings:
-    """ARQ Worker settings"""
+    """Konfiguracja ARQ worker'a dla skannera nuclei - obsługuje skanowanie podatności"""
     functions = [run_nuclei_scan]
     redis_settings = parse_redis_url(REDIS_URL)
     queue_name = 'scanner-nuclei'

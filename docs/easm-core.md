@@ -351,3 +351,106 @@
 
 ---
 
+// ...existing code...
+
+---
+
+## **📁 Struktura projektu - Dla kompletnego laika**
+
+### **📂 app/**
+**Co to:** Główny folder z całą aplikacją - serce projektu.
+**Prościej:** To jak główna szafa z wszystkimi ubraniami - wszystko ważne jest tutaj.
+
+### **📂 app/api/**
+**Co to:** Folder z endpointami API - punktami gdzie frontend rozmawia z backendem.
+**Prościej:** To jak recepcja w hotelu - tutaj przyjmujesz wszystkie zapytania od klientów.
+
+### **📂 app/api/routers/**
+**Co to:** Konkretne ścieżki API pogrupowane tematycznie.
+**Prościej:** To jak różne okienka w urzędzie - każde załatwia inne sprawy.
+
+### **📂 app/core/**
+**Co to:** Podstawowe ustawienia i konfiguracja aplikacji.
+**Prościej:** To jak instrukcja obsługi - mówi aplikacji jak się zachowywać.
+
+### **📂 app/models/**
+**Co to:** Definicje tabel bazodanowych - jak wyglądają dane w bazie.
+**Prościej:** To jak formularze - określają jakie pola masz wypełnić w bazie danych.
+
+### **📂 app/schemas/**
+**Co to:** Schematy Pydantic do walidacji danych wejściowych/wyjściowych.
+**Prościej:** To jak kontrola bezpieczeństwa na lotnisku - sprawdza czy dane są OK.
+
+### **📂 app/services/**
+**Co to:** Logika biznesowa - główne operacje aplikacji.
+**Prościej:** To jak kuchnia w restauracji - tutaj dzieje się prawdziwa robota.
+
+### **📂 app/utils/**
+**Co to:** Pomocnicze funkcje używane w całej aplikacji.
+**Prościej:** To jak przybornik - małe narzędzia które pomagają w różnych sytuacjach.
+
+### **📂 tests/**
+**Co to:** Testy automatyczne sprawdzające czy kod działa poprawnie.
+**Prościej:** To jak egzamin dla kodu - sprawdza czy wszystko działa jak powinno.
+
+### **📂 migrations/**
+**Co to:** Pliki zmieniające strukturę bazy danych w czasie.
+**Prościej:** To jak historia zmian - zapisuje co i kiedy zmieniłeś w bazie.
+
+---
+
+
+
+## **📄 Pliki - Dla kompletnego laika** czytaj Piotrka
+
+### **⚙️ app/core/config.py**
+**Co to:** Główne ustawienia aplikacji (baza danych, API keys, etc.).
+**Prościej:** To jak panel sterowania - tutaj ustawiasz wszystkie ważne opcje.
+
+### **⚙️ app/core/database.py**
+**Co to:** Połączenie z bazą danych i konfiguracja SQLAlchemy.
+**Prościej:** To jak kabel łączący komputer z internetem - łączy aplikację z bazą.
+
+### **🔌 app/api/routers/health.py**
+**Co to:** Endpoint sprawdzający czy aplikacja żyje i działa.
+**Prościej:** To jak puls - szybko sprawdzasz czy aplikacja jeszcze oddycha.
+
+### **🔍 app/api/routers/findings.py**
+**Co to:** Endpointy do zarządzania znaleziskami (dodawanie, pobieranie, etc.).
+**Prościej:** To jak biuro zgłoszeń - tutaj zgłaszasz i przeglądasz wszystkie znaleziska.
+
+### **📊 app/models/finding.py**
+**Co to:** Model bazy danych dla znalezisk - struktura tabeli.
+**Prościej:** To jak szablon formularza - określa jakie pola ma każde znalezisko.
+
+### **✅ app/schemas/finding.py**
+**Co to:** Schematy walidacji dla znalezisk (wejście/wyjście API).
+**Prościej:** To jak kontroler biletów - sprawdza czy dane wyglądają jak powinny.
+
+### **💚 app/schemas/health.py**
+**Co to:** Schemat odpowiedzi dla endpointu health.
+**Prościej:** To jak standardowa odpowiedź "wszystko OK" - zawsze wygląda tak samo.
+
+### **🔧 app/services/finding_service.py**
+**Co to:** Logika biznesowa dla znalezisk (operacje CRUD).
+**Prościej:** To jak pracownik który faktycznie załatwia sprawy - robi prawdziwą robotę.
+
+### **🛠️ app/utils/helpers.py**
+**Co to:** Pomocnicze funkcje używane w różnych miejscach.
+**Prościej:** To jak multitool - małe przydatne narzędzia na różne okazje.
+
+### **🚀 main.py**
+**Co to:** Główny plik uruchamiający aplikację FastAPI.
+**Prościej:** To jak przycisk START - uruchamia całą aplikację.
+
+### **📋 requirements.txt**
+**Co to:** Lista wszystkich bibliotek Pythona potrzebnych do uruchomienia.
+**Prościej:** To jak lista zakupów - wszystko co musisz zainstalować żeby aplikacja działała.
+
+### **🐳 Dockerfile**
+**Co to:** Przepis na stworzenie kontenera Docker z aplikacją.
+**Prościej:** To jak instrukcja pakowania - mówi jak zapakować aplikację w pudełko.
+
+### **🔧 docker-compose.yml**
+**Co to:** Konfiguracja do uruchomienia aplikacji i bazy danych jednym poleceniem.
+**Prościej:** To jak pilot uniwersalny - jednym kliknięciem włącza całe kino domowe.
