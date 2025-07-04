@@ -112,8 +112,8 @@ async def process_scan_result(ctx: dict, scan_id: str, status: str, **kwargs) ->
     
     try:
         # Import here to avoid circular imports
-        from ..services.scan_service import ScanService
-        from ..database import SessionLocal
+        from ...services.scan_service import ScanService
+        from ...database import SessionLocal
         
         # Create database session
         db = SessionLocal()
