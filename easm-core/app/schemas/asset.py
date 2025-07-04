@@ -4,8 +4,19 @@ import ipaddress
 import re
 
 class AssetBase(BaseModel):
-    """Base schema for asset data"""
-    target: str = Field(..., description="Target to scan (IP, domain, or CIDR)")
+    """Base schema for asset data with comprehensive target validation"""
+    target: str = Field(
+        ..., 
+        description="Target to scan - supports multiple formats",
+        example="scanme.nmap.org",
+        examples=[
+            "192.168.1.1",           # Single IP address
+            "192.168.1.0/24",        # CIDR network range
+            "scanme.nmap.org",       # Domain name
+            "example.com",           # Website domain
+            "https://httpbin.org",   # Full URL (for web scanners)
+        ]
+    )
     
     @validator('target')
     def validate_target(cls, v):

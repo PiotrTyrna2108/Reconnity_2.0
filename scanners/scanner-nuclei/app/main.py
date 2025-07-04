@@ -113,18 +113,38 @@ def build_nuclei_command(target: str, options: Dict[str, Any]) -> list:
     cmd.extend(["-rate-limit", str(rate)])
     
     # Severity filtering
-    severity = options.get("severity", "critical,high,medium")
+    severity = options.get("severity", ["critical", "high", "medium"])
     if severity:
-        cmd.extend(["-severity", severity])
+        # Handle both list and string formats
+        if isinstance(severity, list):
+            severity_str = ",".join(severity)
+        else:
+            severity_str = severity
+        cmd.extend(["-severity", severity_str])
     
     # Template selection with explicit path
-    templates_dir = "/root/.config/nuclei/templates"
-    templates_type = options.get("templates", "cves")
+    templates_dir = "/root/nuclei-templates"
+    templates_type = options.get("templates", ["cves"])
     if templates_type:
+        # Handle both list and string formats
+        if isinstance(templates_type, list):
+            template_list = templates_type
+        else:
+            template_list = templates_type.split(",")
+        
         # For each template type, construct full path
         template_paths = []
-        for t_type in templates_type.split(","):
-            template_paths.append(f"{templates_dir}/{t_type}")
+        for t_type in template_list:
+            t_type = t_type.strip()
+            # If it's already a full path, use as-is
+            if t_type.startswith("/"):
+                template_paths.append(t_type)
+            # If it's a relative path starting with template dir name, use as-is
+            elif t_type.startswith("http/") or t_type.startswith("dns/") or t_type.startswith("file/"):
+                template_paths.append(f"{templates_dir}/{t_type}")
+            # Otherwise, assume it's a category in the templates directory
+            else:
+                template_paths.append(f"{templates_dir}/{t_type}")
         
         if template_paths:
             cmd.extend(["-t", ",".join(template_paths)])

@@ -17,24 +17,91 @@ class BaseScanRequest(AssetBase):
     pass
 
 class NmapScanRequest(BaseScanRequest):
-    """Schema for Nmap scan request"""
-    scanner: Literal[ScannerType.NMAP] = ScannerType.NMAP
-    options: Optional[NmapScanOptions] = Field(default_factory=NmapScanOptions)
+    """
+    Nmap scan request for network discovery and port scanning
+    
+    Nmap is the most popular network scanning tool for:
+    - Port scanning (TCP/UDP)
+    - Service detection and version identification
+    - OS fingerprinting
+    - Script scanning for vulnerabilities
+    
+    Example: {"target": "scanme.nmap.org", "scanner": "nmap", "options": {"ports": "1-1000", "scan_type": "SYN", "service_detection": true}}
+    """
+    scanner: Literal[ScannerType.NMAP] = Field(
+        default=ScannerType.NMAP,
+        description="Nmap scanner type"
+    )
+    options: Optional[NmapScanOptions] = Field(
+        default_factory=NmapScanOptions,
+        description="Nmap-specific scanning options"
+    )
 
 class MasscanScanRequest(BaseScanRequest):
-    """Schema for Masscan scan request"""
-    scanner: Literal[ScannerType.MASSCAN] = ScannerType.MASSCAN
-    options: Optional[MasscanOptions] = Field(default_factory=MasscanOptions)
+    """
+    Masscan scan request for fast port scanning
+    
+    Masscan is the fastest port scanner for:
+    - High-speed TCP port scanning
+    - Large network range scanning
+    - Internet-wide scanning capabilities
+    
+    Example: {"target": "192.168.1.0/24", "scanner": "masscan", "options": {"ports": "80,443,22", "rate": "1000"}}
+    """
+    scanner: Literal[ScannerType.MASSCAN] = Field(
+        default=ScannerType.MASSCAN,
+        description="Masscan scanner type"
+    )
+    options: Optional[MasscanOptions] = Field(
+        default_factory=MasscanOptions,
+        description="Masscan-specific scanning options"
+    )
 
 class NucleiScanRequest(BaseScanRequest):
-    """Schema for Nuclei scan request"""
-    scanner: Literal[ScannerType.NUCLEI] = ScannerType.NUCLEI
-    options: Optional[NucleiOptions] = Field(default_factory=NucleiOptions)
+    """
+    Nuclei scan request for vulnerability detection
+    
+    Nuclei is a template-based vulnerability scanner for:
+    - Web application vulnerability scanning
+    - Misconfiguration detection
+    - CVE detection with community templates
+    - Custom vulnerability template execution
+    
+    Example: {"target": "https://example.com", "scanner": "nuclei", "options": {"templates": ["tech-detect", "cves"], "severity": ["critical", "high"]}}
+    """
+    scanner: Literal[ScannerType.NUCLEI] = Field(
+        default=ScannerType.NUCLEI,
+        description="Nuclei scanner type"
+    )
+    options: Optional[NucleiOptions] = Field(
+        default_factory=NucleiOptions,
+        description="Nuclei-specific scanning options"
+    )
 
 class GenericScanRequest(BaseScanRequest):
-    """Compatibility schema for generic scan requests"""
-    scanner: ScannerType = Field(default=ScannerType.NMAP, description="Scanner type")
-    options: Optional[Dict[str, Any]] = Field(default=None, description="Scanner options")
+    """
+    Generic scan request that supports all scanner types
+    
+    Use this schema when you want to specify the scanner type and custom options.
+    Examples:
+    - For Nmap: {"target": "scanme.nmap.org", "scanner": "nmap", "options": {"ports": "80,443", "scan_type": "SYN"}}
+    - For Masscan: {"target": "192.168.1.0/24", "scanner": "masscan", "options": {"ports": "1-1000", "rate": "1000"}}
+    - For Nuclei: {"target": "https://example.com", "scanner": "nuclei", "options": {"templates": ["tech-detect"], "severity": ["high"]}}
+    """
+    scanner: ScannerType = Field(
+        default=ScannerType.NMAP, 
+        description="Type of scanner to use",
+        example="nmap"
+    )
+    options: Optional[Dict[str, Any]] = Field(
+        default=None, 
+        description="Scanner-specific options",
+        example={
+            "ports": "80,443,22",
+            "scan_type": "SYN",
+            "timing": 4
+        }
+    )
 
 # Union of all scan request types
 ScanRequest = Union[NmapScanRequest, MasscanScanRequest, NucleiScanRequest, GenericScanRequest]

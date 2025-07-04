@@ -125,8 +125,13 @@ def build_masscan_command(target: str, options: Dict[str, Any]) -> list:
     # Add json output
     cmd.extend(["--output-format", "json", "--output-filename", "-"])
     
-    # Exclude reserved addresses
-    cmd.append("--exclude-file=/etc/masscan/exclude.conf")
+    # Exclude reserved addresses if exclude file exists
+    exclude_file = "/etc/masscan/exclude.conf"
+    if os.path.exists(exclude_file):
+        cmd.append(f"--exclude-file={exclude_file}")
+        logger.info(f"[MASSCAN] Using exclude file: {exclude_file}")
+    else:
+        logger.info(f"[MASSCAN] No exclude file found, scanning all targets")
     
     return cmd
 
